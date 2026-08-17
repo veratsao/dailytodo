@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>兒童財商大富翁（大螢幕滿版雙骰子版）</title>
+  <title>兒童財商大富翁（完整100題庫版）</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -27,21 +27,21 @@
       color: #ffffff;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px;
+      padding: 6px;
     }
 
-    /* 頂部 Header & 姓名設定 */
+    /* 頂部 Header */
     header {
       width: 100%;
-      height: 6vh;
+      height: 48px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: rgba(30, 41, 59, 0.9);
-      padding: 0 15px;
+      padding: 0 16px;
       border-radius: 8px;
+      margin-bottom: 6px;
+      flex-shrink: 0;
     }
 
     h1 {
@@ -49,54 +49,72 @@
       color: var(--accent-color);
     }
 
+    .header-btns {
+      display: flex;
+      gap: 8px;
+    }
+
     .edit-names-btn {
       background: #3b82f6;
       color: #fff;
       border: none;
-      padding: 4px 12px;
+      padding: 5px 12px;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       cursor: pointer;
     }
 
-    /* 主體佈局：滿版佔用 92vh */
+    .reset-btn-header {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* 主體橫式滿版佈局 */
     .main-layout {
       width: 100%;
-      height: 92vh;
+      flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
+      min-height: 0;
     }
 
-    /* 橫向滿版地圖 (拉滿整個屏幕) */
+    /* 地圖容器 */
     .board-container {
       position: relative;
       width: 100%;
       height: 100%;
       background: var(--board-bg);
-      border-radius: 12px;
+      border-radius: 10px;
       display: grid;
       grid-template-columns: repeat(10, 1fr);
       grid-template-rows: repeat(10, 1fr);
       gap: 3px;
       padding: 4px;
-      border: 3px solid #334155;
+      border: 2px solid #334155;
     }
 
-    /* 大格子設計 */
+    /* 格子設計 */
     .cell {
       background: #334155;
-      border-radius: 6px;
+      border-radius: 4px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      padding: 4px;
-      font-size: 0.85rem;
+      padding: 3px;
+      font-size: 0.8rem;
       font-weight: bold;
       position: relative;
       text-align: center;
       user-select: none;
+      overflow: hidden;
     }
 
     .cell-type-start { background: #dc2626; }
@@ -104,64 +122,70 @@
     .cell-type-task  { background: #d97706; }
     .cell-type-tax   { background: #475569; }
 
-    /* 大棋子容器與大棋子 */
+    /* 棋子容器與棋子 */
     .pieces-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 3px;
+      gap: 2px;
       justify-content: center;
       align-content: center;
       width: 100%;
-      height: 70%;
+      flex: 1;
       z-index: 2;
       overflow: hidden;
     }
 
     .piece {
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
-      border: 2px solid #ffffff;
-      font-size: 11px;
+      border: 1.5px solid #ffffff;
+      font-size: 10px;
       color: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
     }
 
-    /* 中央區域擴大 */
+    /* 中央控制與卡片區：完整填滿 Central Area */
     .center-area {
       grid-column: 2 / 10;
       grid-row: 2 / 10;
       background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
-      border-radius: 12px;
+      border-radius: 10px;
       border: 2px dashed var(--accent-color);
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-around;
-      padding: 12px;
+      justify-content: space-between;
+      padding: 10px;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
     }
 
     .dice-zone {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 20px;
       background: rgba(255, 255, 255, 0.08);
-      padding: 8px 24px;
-      border-radius: 30px;
+      padding: 6px 20px;
+      border-radius: 20px;
       border: 1px solid rgba(255,255,255,0.15);
+      width: 100%;
+      flex-shrink: 0;
     }
 
     .player-tag {
-      font-size: 1.1rem;
+      font-size: 1.25rem;
       font-weight: bold;
       color: #ffffff;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
 
     .dice-group {
@@ -171,29 +195,34 @@
     }
 
     .dice-display {
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       background: #ffffff;
       color: #1e293b;
-      font-size: 26px;
+      font-size: 24px;
       font-weight: bold;
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
 
     .btn {
       background: linear-gradient(135deg, #f59e0b, #d97706);
       color: white;
       border: none;
-      padding: 10px 24px;
+      padding: 8px 20px;
       font-size: 1.05rem;
       font-weight: bold;
-      border-radius: 20px;
+      border-radius: 16px;
       cursor: pointer;
-      box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+      box-shadow: 0 3px 8px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn-reset-center {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 3px 8px rgba(239, 68, 68, 0.4);
     }
 
     .btn:disabled {
@@ -202,62 +231,81 @@
       cursor: not-allowed;
     }
 
-    /* 中央卡片擴大 */
+    /* 中央問答卡：填滿剩餘空間 */
     .quiz-card {
-      width: 98%;
-      height: 70%;
+      width: 100%;
+      flex: 1;
+      margin-top: 8px;
       background: #1e293b;
       border: 2px solid #38bdf8;
-      border-radius: 12px;
-      padding: 12px 18px;
+      border-radius: 10px;
+      padding: 16px 24px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       text-align: center;
+      min-height: 0;
     }
 
     .quiz-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 1rem;
+      font-size: 1.2rem;
       color: #38bdf8;
+      font-weight: bold;
     }
 
+    /* 超大題目字體 */
     .quiz-question {
-      font-size: 1.25rem;
-      color: #f8fafc;
+      font-size: 2rem;
+      color: #ffffff;
       font-weight: bold;
-      margin: 6px 0;
+      margin: 10px 0;
       line-height: 1.4;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .options-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 12px;
     }
 
+    /* 超大選項按鈕與字體 */
     .option-btn {
       background: #334155;
       color: #f8fafc;
-      border: 1px solid #475569;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 1rem;
+      border: 2px solid #38bdf8;
+      padding: 14px 10px;
+      border-radius: 12px;
+      font-size: 1.35rem;
       font-weight: bold;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .option-btn:hover {
+      background: #0284c7;
+      color: #ffffff;
     }
 
     .option-btn:active {
-      background: #0284c7;
+      background: #0369a1;
+      transform: scale(0.98);
     }
 
     .result-msg {
-      font-size: 1.1rem;
+      font-size: 1.4rem;
       font-weight: bold;
-      height: 1.3rem;
+      height: 1.8rem;
+      margin-bottom: 4px;
     }
 
     /* 彈出修改姓名 Modal */
@@ -275,9 +323,9 @@
       background: #1e293b;
       padding: 20px;
       border-radius: 12px;
-      width: 80%;
+      width: 85%;
       max-width: 600px;
-      max-height: 80vh;
+      max-height: 85vh;
       overflow-y: auto;
       border: 2px solid var(--accent-color);
     }
@@ -311,7 +359,10 @@
 
   <header>
     <h1>兒童財商大富翁</h1>
-    <button class="edit-names-btn" onclick="openNameModal()">⚙️ 自訂孩子名字（單字）</button>
+    <div class="header-btns">
+      <button class="edit-names-btn" onclick="openNameModal()">⚙️ 自訂孩子名字</button>
+      <button class="reset-btn-header" onclick="confirmResetGame()">🔄 重置遊戲</button>
+    </div>
   </header>
 
   <div class="main-layout">
@@ -319,16 +370,17 @@
       
       <div class="center-area">
         
-        <!-- 擲骰控制區 (雙骰子設計) -->
+        <!-- 擲骰控制區 -->
         <div class="dice-zone">
           <div class="player-tag">
-            輪到玩家：<span id="current-player-name" style="color:var(--accent-color); font-size:1.4rem;">1</span>
+            輪到玩家：<span id="current-player-name" style="color:var(--accent-color); font-size:1.5rem;">1</span>
           </div>
           <div class="dice-group">
             <div class="dice-display" id="dice1-val">?</div>
             <div class="dice-display" id="dice2-val">?</div>
           </div>
           <button class="btn" id="roll-btn" onclick="playTurn()">擲骰子</button>
+          <button class="btn btn-reset-center" onclick="confirmResetGame()">重置</button>
         </div>
 
         <!-- 問答卡區塊 -->
@@ -366,7 +418,6 @@
       "#ec4899", "#f43f5e", "#a8a29e", "#64748b"
     ];
 
-    // 預設名字為數字單字 "1", "2", ... "19"
     const players = Array.from({ length: 19 }, (_, i) => ({
       id: i + 1,
       name: `${i + 1}`,
@@ -397,19 +448,118 @@
       { name: "買烘焙", type: "task" }, { name: "預算關", type: "quiz" }
     ];
 
+    // 更新後的完整 100 題庫（50 題選擇 + 50 題是非）
     const masterQuestionBank = [
+      /* 篇章一：選擇題 50 題 */
       { type: "select", q: "小明肚子餓了想買一個麵包吃，請問這個「麵包」屬於什麼？", options: ["(A) 需要", "(B) 想要", "(C) 浪費", "(D) 投資"], ans: 0 },
       { type: "select", q: "小華已經有一雙好穿的運動鞋，但看見同學買了酷炫的新鞋也想買一雙，請問這是什麼？", options: ["(A) 需要", "(B) 想要", "(C) 必須品", "(D) 義務"], ans: 1 },
       { type: "select", q: "下列哪一項物品通常是生活中的「需要」？", options: ["(A) 最新款的遊戲機", "(B) 乾淨的飲用水", "(C) 限量版公仔", "(D) 吃到飽餐廳的餐券"], ans: 1 },
       { type: "select", q: "當我們手中的錢有限，但同時有「需要」和「想要」的東西時，應該先買哪一個？", options: ["(A) 想要的", "(B) 需要的", "(C) 最貴的", "(D) 包裝最漂亮的"], ans: 1 },
       { type: "select", q: "下列哪一種購物心態最容易造成浪費？", options: ["(A) 寫好購物清單才去買", "(B) 因為特價就把不需要的東西買回家", "(C) 先比較價格再買", "(D) 先回家考慮三天"], ans: 1 },
+      { type: "select", q: "「沒買會影響基本生活」的東西，通常稱為：", options: ["(A) 想要", "(B) 需要", "(C) 奢華品", "(D) 收藏品"], ans: 1 },
+      { type: "select", q: "「買了會很開心，但沒有也不會影響生活」的東西，稱為：", options: ["(A) 需要", "(B) 想要", "(C) 必須品", "(D) 必需品"], ans: 1 },
+      { type: "select", q: "逛夜市時看到可愛的小皮球，雖然家裡已經有三個了，還是想買，這是什麼行為？", options: ["(A) 聰明消費", "(B) 滿足「需要」", "(C) 滿足「想要」", "(D) 正確投資"], ans: 2 },
+      { type: "select", q: "如果我們把大部分的錢都拿去買「想要」的東西，最後可能會發生什麼事？", options: ["(A) 變成有錢人", "(B) 需要買重要物品時會沒有錢", "(C) 得到更多獎品", "(D) 銀行會送我們禮物"], ans: 1 },
+      { type: "select", q: "分清「需要」和「想要」的最大好處是什麼？", options: ["(A) 可以不用花錢", "(B) 可以幫我們控制預算、聰明花錢", "(C) 買東西可以打折", "(D) 讓同學很羨慕"], ans: 1 },
+      
       { type: "select", q: "通常建議把零用錢分成三份，最常見的分法是哪三份？", options: ["(A) 吃、喝、玩", "(B) 儲蓄、花費、捐贈/分享", "(C) 買玩具、買零食、買電動", "(D) 借人、丟掉、花光"], ans: 1 },
-      { type: "select", q: "「先儲蓄，再消費」的意思是什麼？", options: ["(A) 拿到零用錢時先扣掉要存的錢，剩下才是能花的花費", "(B) 花完錢之後，如果有剩才存", "(C) 不吃不喝把錢全部存起來", "(D) 向別人借錢來存"], ans: 0 },
+      { type: "select", q: "拿到零用錢時，最聰明的做法是：", options: ["(A) 先花光，剩下的再存起來", "(B) 先存一部分，剩下的再合理消費", "(C) 全部拿去買糖果", "(D) 藏在課本裡忘記它"], ans: 1 },
+      { type: "select", q: "「先儲蓄，再消費」的意思是什麼？", options: ["(A) 賺到錢或拿到零用錢時，先扣掉要存的錢，剩下的才是能花的花費", "(B) 花完錢之後，如果有剩才存", "(C) 不吃不喝把錢全部存起來", "(D) 向別人借錢來存"], ans: 0 },
       { type: "select", q: "如果你想買一台 600 元的腳踏車，每週可以存 50 元，請問需要存幾個星期？", options: ["(A) 6 週", "(B) 10 週", "(C) 12 週", "(D) 20 週"], ans: 2 },
+      { type: "select", q: "把錢存進銀行或郵局，除了比較安全之外，還有什麼好處？", options: ["(A) 會送免費玩具", "(B) 可以賺取微薄的「利息」", "(C) 錢會自動變多十倍", "(D) 可以不用寫作業"], ans: 1 },
+      { type: "select", q: "下列哪一個是養成儲蓄習慣的好幫手？", options: ["(A) 記帳本", "(B) 垃圾桶", "(C) 購物台", "(D) 廣告傳單"], ans: 0 },
+      { type: "select", q: "定期記帳的主要目的是什麼？", options: ["(A) 練習寫字", "(B) 知道自己的錢花到哪裡去，並檢討改進", "(C) 給爸媽檢查拿獎金", "(D) 計算數學題目"], ans: 1 },
+      { type: "select", q: "準備「緊急預備金」（緊急存錢）的作用是什麼？", options: ["(A) 隨時拿去買限量玩具", "(B) 應付突發狀況，例如生病或物品壞掉", "(C) 請全班同學吃冰淇淋", "(D) 借給不認識的陌生人"], ans: 1 },
+      { type: "select", q: "小強每週有 100 元零用錢，他決定存 30 元、捐 10 元、花 60 元，請問他一個月（4週）可以存多少錢？", options: ["(A) 40 元", "(B) 120 元", "(C) 240 元", "(D) 400 元"], ans: 1 },
+      { type: "select", q: "存錢的主要目的不包括下列哪一項？", options: ["(A) 達成未來的目標", "(B) 應付緊急狀況", "(C) 養成自律的好習慣", "(D) 拿來跟同學炫耀"], ans: 3 },
+
+      { type: "select", q: "買東西前，先列出「購物清單」有什麼好處？", options: ["(A) 買得比較快且不易買到不需要的東西", "(B) 店員會給打折", "(C) 可以買更多玩具", "(D) 可以不用付錢"], ans: 0 },
+      { type: "select", q: "兩家超商賣同一款文具，A店賣 30 元，B店買一送一賣 50 元，如果小明只需要「一個」，請問去哪裡買比較省錢？", options: ["(A) A店", "(B) B店", "(C) 兩家一樣省", "(D) 都不要買"], ans: 0 },
+      { type: "select", q: "「貨比三家不吃虧」這句話的意思是什麼？", options: ["(A) 買東西要一次買三家", "(B) 購買前多比較不同店家的價格與品質", "(C) 一定要選最貴的買", "(D) 只在同一家店買東西"], ans: 1 },
+      { type: "select", q: "當看到「買二送一」的促銷活動時，最聰明的思考方式是什麼？", options: ["(A) 只要有送東西就一定要買", "(B) 思考自己真的需要那麼多數量嗎", "(C) 把店裡的商品全買光", "(D) 請朋友幫忙買"], ans: 1 },
+      { type: "select", q: "決定是否購買一件物品時，除了考慮價格，還應該考慮什麼？", options: ["(A) 物品的品質與實用性", "(B) 包裝袋酷不酷", "(C) 廣告明星是誰", "(D) 贈品送什麼"], ans: 0 },
+      { type: "select", q: "在網路購物時，下列哪種行為是安全的？", options: ["(A) 隨便輸入爸媽的信用卡號碼", "(B) 經由父母同意並陪同操作安全的購物網站", "(C) 相信陌生人傳來的超便宜連結", "(D) 把自己的個人資料公開在留言區"], ans: 1 },
+      { type: "select", q: "什麼叫做「隱形開銷」（隱藏成本）？", options: ["(A) 看不見的錢", "(B) 買了機器後，後續還需要定期購買的耗材或維修費", "(C) 被偷走的前", "(D) 放在口袋裡的零錢"], ans: 1 },
+      { type: "select", q: "小紅想買一本故事書，去書店買要 200 元，二手書網站只要 80 元且保存良好，請問買二手書屬於哪種行為？", options: ["(A) 小氣過頭", "(B) 聰明且環保的消費", "(C) 違法行為", "(D) 浪費錢"], ans: 1 },
+      { type: "select", q: "去逛超市時，把商品「單位價格」（例如每公克多少錢）拿來比較，這叫做什麼？", options: ["(A) 偷懶", "(B) 精明比價", "(C) 浪費時間", "(D) 不道德"], ans: 1 },
+      { type: "select", q: "電視廣告經常會把產品拍得非常吸引人，我們應該抱持什麼態度？", options: ["(A) 廣告說什麼就全盤相信", "(B) 保持理性思考，不被誇大宣傳影響", "(C) 馬上叫爸媽買給我", "(D) 生氣地把電視關掉"], ans: 1 },
+
+      { type: "select", q: "父母工作賺來的錢，主要來源是什麼？", options: ["(A) 只要去 ATM 提款機按一按就會自動出來", "(B) 付出時間、專業技能與辛苦勞動換來的", "(C) 政府每天免費發放的", "(D) 地上撿來的"], ans: 1 },
+      { type: "select", q: "「天下沒有白吃的午餐」這句話在財商觀念中代表什麼意思？", options: ["(A) 午餐一定要花錢買", "(B) 想獲得報酬或想要的東西，必須付出努力或代價", "(C) 去餐廳吃飯不能刷卡", "(D) 學校不提供午餐"], ans: 1 },
+      { type: "select", q: "下列哪一種方式不是獲取正當收入的方式？", options: ["(A) 長大後當醫生或工程師上班", "(B) 開店賣美味的麵包", "(C) 拿同學的東西去賣錢", "(D) 提供清潔服務賺取報酬"], ans: 2 },
+      { type: "select", q: "什麼是「延遲享樂」？", options: ["(A) 永遠不享受生活", "(B) 為了實現未來更大的目標，願意克制現在一時的慾望", "(C) 買東西一定要拖到最後一秒才付錢", "(D) 遲到買東西"], ans: 1 },
+      { type: "select", q: "看到同學擁有最新的遊戲機，自己沒有時，正確的心態應該是什麼？", options: ["(A) 哭鬧逼父母買給我", "(B) 偷偷拿別人的來玩", "(C) 珍惜自己現有的東西，若真的很想要就擬定存錢計畫", "(D) 討厭那個同學"], ans: 2 },
+      { type: "select", q: "金錢可以買到很多東西，但下列哪一項是無法用金錢買到的？", options: ["(A) 新玩具", "(B) 美味餐點", "(C) 真誠的友誼與親情", "(D) 文具用品"], ans: 2 },
+      { type: "select", q: "「機會成本」的意思是指選擇了一樣東西後，必須放棄什麼？", options: ["(A) 另一個選擇的價值", "(B) 所有的錢", "(C) 朋友", "(D) 時間"], ans: 0 },
+      { type: "select", q: "如果你只有 50 元，買了冰淇淋就不能買漫畫書，請問「被放棄掉的漫畫書」是什麼？", options: ["(A) 投資", "(B) 機會成本", "(C) 利息", "(D) 負債"], ans: 1 },
+      { type: "select", q: "下列哪一種習慣最能展現負責任的財商態度？", options: ["(A) 珍惜並愛護自己的物品，減少損壞與遺失", "(B) 壞了就叫父母買新的", "(C) 隨意把錢放在桌上", "(D) 常常請同學吃東西展現大方"], ans: 0 },
+      { type: "select", q: "將自己不需要但狀況良好的玩具捐給公益機構，這屬於理財分配中的哪一部分？", options: ["(A) 儲蓄", "(B) 消費", "(C) 分享與回饋社會", "(D) 投資"], ans: 2 },
+
+      { type: "select", q: "「信用」在金錢交易中代表什麼意思？", options: ["(A) 戶頭裡有多少錢", "(B) 個人說話算話、按時還錢的承諾與名譽", "(C) 認識多少富翁", "(D) 長得漂不漂亮"], ans: 1 },
+      { type: "select", q: "小明向同學借了 20 元買公車票，並承諾明天還，請問他明天應該怎麼做？", options: ["(A) 假裝忘記", "(B) 按時歸還 20 元", "(C) 拖延一個月再還", "(D) 只還 10 元"], ans: 1 },
+      { type: "select", q: "借錢給別人或向別人借錢時，如果經常拖延不還，會造成什麼後果？", options: ["(A) 別人會更喜歡你", "(B) 建立良好的信用", "(C) 失去別人的信任，破壞人際關係", "(D) 可以賺更多錢"], ans: 2 },
+      { type: "select", q: "當陌生人對你說：「幫我保管這個包包，我給你 1000 元」，你應該怎麼做？", options: ["(A) 開心地立刻答應", "(B) 拒絕並保持警覺，告訴家長或老師", "(C) 拿了錢跑去買玩具", "(D) 幫他拿去警察局換錢"], ans: 1 },
+      { type: "select", q: "什麼是「詐騙」？", options: ["(A) 警察抓壞人", "(B) 用不合法的謊言騙取別人的金錢或財物", "(C) 商店打折活動", "(D) 銀行存款利息"], ans: 1 },
+      { type: "select", q: "在遊戲中，有玩家說：「只要你把帳號密碼給我，我就送你無限遊戲幣！」請問這是什麼情況？", options: ["(A) 遇到好心人", "(B) 很可能是網路詐騙陷阱", "(C) 遊戲公司的官方活動", "(D) 幸運抽獎"], ans: 1 },
+      { type: "select", q: "使用信用卡刷卡消費時，代表什麼含意？", options: ["(A) 這些東西是免費送的", "(B) 先由銀行幫忙付錢，之後自己一定要付錢給銀行", "(C) 錢會從天而降", "(D) 可以永遠不用還錢"], ans: 1 },
+      { type: "select", q: "下列哪一種行為會傷害個人的「信用」？", options: ["(A) 借書按時歸還", "(B) 答應別人的事沒有做到，借錢不還", "(C) 每天認真記帳", "(D) 幫忙做家事"], ans: 1 },
+      { type: "select", q: "遇到有人要求你提供家裡的銀行帳號或個人資料時，最正確的做法是：", options: ["(A) 直接告訴對方", "(B) 立刻拒絕並詢問父母或撥打 165 反詐騙專線", "(C) 寫在紙上給他", "(D) 換取小禮物"], ans: 1 },
+
+      /* 篇章二：是非題 50 題 */
       { type: "tf", q: "只要是我很想要的東西，就代表是生活中的「需要」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
       { type: "tf", q: "水、食物、衣服和安全的住所，都是人類維持生存的「需要」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
       { type: "tf", q: "買東西前先寫購物清單，可以幫助我們避免衝動購物。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "拿到零用錢時，應該「先儲蓄，再消費」，養成存錢好習慣。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 }
+      { type: "tf", q: "只要商品在打折特價，就算用不到買回家也是賺到。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "「需要」的東西沒買可能會影響生活；「想要」的東西沒買生活依然能正常過。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "文具店裡最貴的彩色筆，品質一定就是最好的，買最貴的準沒錯。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "拿到零用錢時，應該「先儲蓄，再消費」，養成存錢好習慣。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "零用錢是我的，我想怎麼花就怎麼花，完全不用規劃。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "記帳太麻煩了，對控管金錢一點幫助也沒有。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "把錢存進銀行，不僅比放在家裡安全，還能產生利息。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+
+      { type: "tf", q: "想要買昂貴的物品時，可以透過設定「儲蓄目標」並按部就班存錢來達成。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "自動提款機（ATM）裡的錢是無限的，隨時去按按鈕就有錢出來。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "爸爸媽媽賺錢很辛苦，是用時間與勞力換來的，我們應該珍惜使用。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "只要我喜歡，可以隨便拿同學的東西去轉賣賺錢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "錢可以買到美味的食物，但買不到身體的健康。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "「貨比三家」是指買東西時要比較不同店家的價格、品質和服務。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "買東西時，只要包裝看起來很酷、很漂亮，就表示裡面的東西很好。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "便利商店的「買一送一」活動，如果自己根本不需要或吃不完，就不應該貪便宜購買。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "為了買自己喜歡的玩具而忍住不吃零食，這種行為叫做「延遲享樂」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "「機會成本」告訴我們，當我們選擇了 A，就必須放棄 B 的價值。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+
+      { type: "tf", q: "向別人借東西或借錢，只要對方沒提醒，就可以不用還。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "建立良好的「信用」，可以讓別人在未來更願意信任我們、幫助我們。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "信用卡刷卡很方便，等於裡面的錢都是銀行免費送給我們的。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "網路上的陌生人說要免費送我高級遊戲裝備，只要我提供帳號密碼，我可以放心給他。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "遇到詐騙或不確定是否安全的金錢交易時，可以撥打 165 反詐騙專線諮詢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "把用不到但狀況良好的玩具捐給需要的小朋友，是一種善用資源、分享愛心的表現。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "只要有錢，就可以解決世界上所有的問題。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "買東西前問自己：「這是需要的？還是想要的？」能減少買錯東西的機率。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "二手物品（例如舊書或舊玩具）因為別人用過，所以完全沒有價值。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "把所有的零用錢全部花光光，叫做「理財高手」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+
+      { type: "tf", q: "「預算」是指在花錢之前，先設定好自己最多只能花多少錢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "買了玩具車之後，還要不斷花錢買電池，這些電池的費用屬於這輛車的「隱形開銷」（隱藏成本）。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "電視上的廣告都是真的，完全不會誇大或吸引人多花錢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "看到同學有最新款的手機，我也一定要吵著讓爸媽買給我，這樣才不會輸給別人。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "保護好自己的私人資料（如身份證號碼、銀行帳號、密碼）也是安全財商的一部分。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "小明把錢分裝在「儲蓄」、「消費」、「分享」三個盒子裡，這是一種良好的財務分配習慣。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "就算沒有緊急預備金，人生遇到突發狀況時也絕對不會有影響。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "只要能賺到錢，使用偷竊或欺騙的方式也沒有關係。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "愛護自己的書包與文具，延長使用壽命，也是幫爸爸媽媽省錢（理財）的一種方式。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "「利息」是把錢存進銀行後，銀行支付給存款人的一種報酬。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+
+      { type: "tf", q: "當我們向銀行貸款買房子時，未來只需要還本金，不需要支付利息。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "在實體商店買東西時，找零的錢不需要當場點清，直接放口袋就好。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "買東西時索取統一發票，除了可以對獎之外，還能幫助國家收取稅收。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "世界上所有物品的價格都是固定不變的，永遠不會調漲。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "如果把錢全部放在家裡的枕頭底下，錢會自己慢慢變多。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "只要是免費送的小禮物，不管有沒有用到，拿得越多越好。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "理財不只是學習如何「花錢」與「存錢」，還包括如何「分享」與「管理風險」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "因為好朋友向我借錢，所以就算我自己沒錢了，也要去向別人借錢來借給他。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "聰明消費的目標是「用最合理的價格，買到符合需求且品質良好的商品」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "從小養成良好的財商觀念，長大後更容易做聰明的財務決策。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 }
     ];
 
     let activeQuestionPool = [];
@@ -470,7 +620,7 @@
         const pElem = document.createElement("div");
         pElem.className = "piece";
         pElem.style.backgroundColor = p.color;
-        pElem.innerText = p.name; // 顯示自訂單字
+        pElem.innerText = p.name;
         document.getElementById(`pieces-${p.position}`).appendChild(pElem);
       });
     }
@@ -563,11 +713,29 @@
       }, 1500);
     }
 
-    /* 設定姓名視窗控制 */
+    function confirmResetGame() {
+      if (confirm("確定要重置遊戲嗎？所有玩家將回到起點。")) {
+        players.forEach(p => p.position = 0);
+        currentPlayerIndex = 0;
+        refreshQuestionPool();
+
+        document.getElementById("dice1-val").innerText = "?";
+        document.getElementById("dice2-val").innerText = "?";
+        document.getElementById("quiz-type-tag").innerText = "";
+        document.getElementById("quiz-q").innerText = "遊戲已重置，請點擊「擲骰子」開始！";
+        document.getElementById("result-msg").innerText = "";
+        document.getElementById("options-container").innerHTML = "";
+        document.getElementById("roll-btn").disabled = false;
+
+        updatePieces();
+        updatePlayerDisplay();
+      }
+    }
+
     function openNameModal() {
       const container = document.getElementById("name-input-container");
       container.innerHTML = "";
-      players.forEach((p, index) => {
+      players.forEach((p) => {
         const item = document.createElement("div");
         item.className = "name-input-item";
         item.innerHTML = `
