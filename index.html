@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>兒童財商大富翁（大螢幕滿版雙骰子版）</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --board-bg: #1e293b;
+      --accent-color: #fbbf24;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+      touch-action: manipulation;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-color);
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px;
+    }
+
+    /* 頂部 Header & 姓名設定 */
+    header {
+      width: 100%;
+      height: 6vh;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.9);
+      padding: 0 15px;
+      border-radius: 8px;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+      color: var(--accent-color);
+    }
+
+    .edit-names-btn {
+      background: #3b82f6;
+      color: #fff;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    /* 主體佈局：滿版佔用 92vh */
+    .main-layout {
+      width: 100%;
+      height: 92vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* 橫向滿版地圖 (拉滿整個屏幕) */
+    .board-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--board-bg);
+      border-radius: 12px;
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      gap: 3px;
+      padding: 4px;
+      border: 3px solid #334155;
+    }
+
+    /* 大格子設計 */
+    .cell {
+      background: #334155;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      position: relative;
+      text-align: center;
+      user-select: none;
+    }
+
+    .cell-type-start { background: #dc2626; }
+    .cell-type-quiz  { background: #2563eb; }
+    .cell-type-task  { background: #d97706; }
+    .cell-type-tax   { background: #475569; }
+
+    /* 大棋子容器與大棋子 */
+    .pieces-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      justify-content: center;
+      align-content: center;
+      width: 100%;
+      height: 70%;
+      z-index: 2;
+      overflow: hidden;
+    }
+
+    .piece {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      font-size: 11px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    /* 中央區域擴大 */
+    .center-area {
+      grid-column: 2 / 10;
+      grid-row: 2 / 10;
+      background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
+      border-radius: 12px;
+      border: 2px dashed var(--accent-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-around;
+      padding: 12px;
+    }
+
+    .dice-zone {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 8px 24px;
+      border-radius: 30px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .player-tag {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dice-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .dice-display {
+      width: 48px;
+      height: 48px;
+      background: #ffffff;
+      color: #1e293b;
+      font-size: 26px;
+      font-weight: bold;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn:disabled {
+      background: #64748b;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* 中央卡片擴大 */
+    .quiz-card {
+      width: 98%;
+      height: 70%;
+      background: #1e293b;
+      border: 2px solid #38bdf8;
+      border-radius: 12px;
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: center;
+    }
+
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1rem;
+      color: #38bdf8;
+    }
+
+    .quiz-question {
+      font-size: 1.25rem;
+      color: #f8fafc;
+      font-weight: bold;
+      margin: 6px 0;
+      line-height: 1.4;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .option-btn {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .option-btn:active {
+      background: #0284c7;
+    }
+
+    .result-msg {
+      font-size: 1.1rem;
+      font-weight: bold;
+      height: 1.3rem;
+    }
+
+    /* 彈出修改姓名 Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      width: 80%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 2px solid var(--accent-color);
+    }
+
+    .name-input-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 15px 0;
+    }
+
+    .name-input-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .name-input-item input {
+      width: 50px;
+      padding: 4px;
+      text-align: center;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>兒童財商大富翁</h1>
+    <button class="edit-names-btn" onclick="openNameModal()">⚙️ 自訂孩子名字（單字）</button>
+  </header>
+
+  <div class="main-layout">
+    <div class="board-container" id="board">
+      
+      <div class="center-area">
+        
+        <!-- 擲骰控制區 (雙骰子設計) -->
+        <div class="dice-zone">
+          <div class="player-tag">
+            輪到玩家：<span id="current-player-name" style="color:var(--accent-color); font-size:1.4rem;">1</span>
+          </div>
+          <div class="dice-group">
+            <div class="dice-display" id="dice1-val">?</div>
+            <div class="dice-display" id="dice2-val">?</div>
+          </div>
+          <button class="btn" id="roll-btn" onclick="playTurn()">擲骰子</button>
+        </div>
+
+        <!-- 問答卡區塊 -->
+        <div class="quiz-card" id="quiz-card">
+          <div class="quiz-header">
+            <span>💡 財商考驗區</span>
+            <span id="quiz-type-tag" style="color:#fbbf24;"></span>
+          </div>
+          <div class="quiz-question" id="quiz-q">請點擊「擲骰子」開始遊戲！</div>
+          <div class="result-msg" id="result-msg"></div>
+          <div class="options-grid" id="options-container">
+            <!-- 動態渲染選項 -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 編輯名字彈出視窗 -->
+  <div class="modal-overlay" id="name-modal">
+    <div class="modal-content">
+      <h2>設定孩子單字代表 (最多 1~2 字)</h2>
+      <div class="name-input-grid" id="name-input-container"></div>
+      <button class="btn" style="width:100%; margin-top:10px;" onclick="saveNames()">儲存並更新</button>
+    </div>
+  </div>
+
+  <script>
+    const playerColors = [
+      "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16",
+      "#22c55e", "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9",
+      "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
+      "#ec4899", "#f43f5e", "#a8a29e", "#64748b"
+    ];
+
+    // 預設名字為數字單字 "1", "2", ... "19"
+    const players = Array.from({ length: 19 }, (_, i) => ({
+      id: i + 1,
+      name: `${i + 1}`,
+      color: playerColors[i],
+      position: 0
+    }));
+
+    let currentPlayerIndex = 0;
+
+    const boardCells = [
+      { name: "起點", type: "start" }, { name: "儲蓄關", type: "quiz" },
+      { name: "買玩具", type: "task" }, { name: "零用錢", type: "quiz" },
+      { name: "繳水費", type: "tax" }, { name: "存豬公", type: "quiz" },
+      { name: "超級市場", type: "task" }, { name: "買圖書", type: "quiz" },
+      { name: "銀行", type: "task" }, { name: "休息站", type: "tax" },
+      { name: "理財關", type: "quiz" }, { name: "逛夜市", type: "task" },
+      { name: "做家事", type: "quiz" }, { name: "發票中獎", type: "task" },
+      { name: "買文具", type: "quiz" }, { name: "看電影", type: "task" },
+      { name: "利息關", type: "quiz" }, { name: "繳電費", type: "tax" },
+      { name: "公園", type: "tax" }, { name: "投資關", type: "quiz" },
+      { name: "買冰淇淋", type: "task" }, { name: "壓歲錢", type: "quiz" },
+      { name: "買禮物", type: "task" }, { name: "捐款關", type: "quiz" },
+      { name: "二手市集", type: "task" }, { name: "理財通", type: "quiz" },
+      { name: "遊樂園", type: "task" }, { name: "聰明消費", type: "quiz" },
+      { name: "公車卡", type: "tax" }, { name: "分享關", type: "quiz" },
+      { name: "買水彩", type: "task" }, { name: "記帳關", type: "quiz" },
+      { name: "獎學金", type: "task" }, { name: "儲蓄王", type: "quiz" },
+      { name: "買烘焙", type: "task" }, { name: "預算關", type: "quiz" }
+    ];
+
+    const masterQuestionBank = [
+      { type: "select", q: "小明肚子餓了想買一個麵包吃，請問這個「麵包」屬於什麼？", options: ["(A) 需要", "(B) 想要", "(C) 浪費", "(D) 投資"], ans: 0 },
+      { type: "select", q: "小華已經有一雙好穿的運動鞋，但看見同學買了酷炫的新鞋也想買一雙，請問這是什麼？", options: ["(A) 需要", "(B) 想要", "(C) 必須品", "(D) 義務"], ans: 1 },
+      { type: "select", q: "下列哪一項物品通常是生活中的「需要」？", options: ["(A) 最新款的遊戲機", "(B) 乾淨的飲用水", "(C) 限量版公仔", "(D) 吃到飽餐廳的餐券"], ans: 1 },
+      { type: "select", q: "當我們手中的錢有限，但同時有「需要」和「想要」的東西時，應該先買哪一個？", options: ["(A) 想要的", "(B) 需要的", "(C) 最貴的", "(D) 包裝最漂亮的"], ans: 1 },
+      { type: "select", q: "下列哪一種購物心態最容易造成浪費？", options: ["(A) 寫好購物清單才去買", "(B) 因為特價就把不需要的東西買回家", "(C) 先比較價格再買", "(D) 先回家考慮三天"], ans: 1 },
+      { type: "select", q: "通常建議把零用錢分成三份，最常見的分法是哪三份？", options: ["(A) 吃、喝、玩", "(B) 儲蓄、花費、捐贈/分享", "(C) 買玩具、買零食、買電動", "(D) 借人、丟掉、花光"], ans: 1 },
+      { type: "select", q: "「先儲蓄，再消費」的意思是什麼？", options: ["(A) 拿到零用錢時先扣掉要存的錢，剩下才是能花的花費", "(B) 花完錢之後，如果有剩才存", "(C) 不吃不喝把錢全部存起來", "(D) 向別人借錢來存"], ans: 0 },
+      { type: "select", q: "如果你想買一台 600 元的腳踏車，每週可以存 50 元，請問需要存幾個星期？", options: ["(A) 6 週", "(B) 10 週", "(C) 12 週", "(D) 20 週"], ans: 2 },
+      { type: "tf", q: "只要是我很想要的東西，就代表是生活中的「需要」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
+      { type: "tf", q: "水、食物、衣服和安全的住所，都是人類維持生存的「需要」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "買東西前先寫購物清單，可以幫助我們避免衝動購物。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
+      { type: "tf", q: "拿到零用錢時，應該「先儲蓄，再消費」，養成存錢好習慣。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 }
+    ];
+
+    let activeQuestionPool = [];
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function refreshQuestionPool() {
+      activeQuestionPool = shuffle([...masterQuestionBank]);
+    }
+
+    function getGridPosition(index) {
+      if (index >= 0 && index <= 9) return { row: 10, col: 10 - index };
+      if (index >= 10 && index <= 18) return { row: 10 - (index - 9), col: 1 };
+      if (index >= 19 && index <= 27) return { row: 1, col: 1 + (index - 18) };
+      return { row: 1 + (index - 27), col: 10 };
+    }
+
+    function init() {
+      refreshQuestionPool();
+      const board = document.getElementById("board");
+
+      boardCells.forEach((cellData, i) => {
+        const cell = document.createElement("div");
+        cell.className = `cell cell-type-${cellData.type}`;
+        
+        const pos = getGridPosition(i);
+        cell.style.gridRow = pos.row;
+        cell.style.gridColumn = pos.col;
+
+        const title = document.createElement("div");
+        title.innerText = cellData.name;
+
+        const piecesContainer = document.createElement("div");
+        piecesContainer.className = "pieces-container";
+        piecesContainer.id = `pieces-${i}`;
+
+        cell.appendChild(title);
+        cell.appendChild(piecesContainer);
+        board.appendChild(cell);
+      });
+
+      updatePieces();
+      updatePlayerDisplay();
+    }
+
+    function updatePieces() {
+      boardCells.forEach((_, i) => {
+        document.getElementById(`pieces-${i}`).innerHTML = "";
+      });
+
+      players.forEach(p => {
+        const pElem = document.createElement("div");
+        pElem.className = "piece";
+        pElem.style.backgroundColor = p.color;
+        pElem.innerText = p.name; // 顯示自訂單字
+        document.getElementById(`pieces-${p.position}`).appendChild(pElem);
+      });
+    }
+
+    function updatePlayerDisplay() {
+      const p = players[currentPlayerIndex];
+      const nameElem = document.getElementById("current-player-name");
+      nameElem.innerText = p.name;
+      nameElem.style.color = p.color;
+    }
+
+    function playTurn() {
+      const p = players[currentPlayerIndex];
+      const btn = document.getElementById("roll-btn");
+      btn.disabled = true;
+
+      document.getElementById("result-msg").innerText = "";
+      document.getElementById("options-container").innerHTML = "";
+
+      let count = 0;
+      const interval = setInterval(() => {
+        const tempVal1 = Math.floor(Math.random() * 6) + 1;
+        const tempVal2 = Math.floor(Math.random() * 6) + 1;
+        document.getElementById("dice1-val").innerText = tempVal1;
+        document.getElementById("dice2-val").innerText = tempVal2;
+        count++;
+        if (count > 8) {
+          clearInterval(interval);
+          const diceVal1 = Math.floor(Math.random() * 6) + 1;
+          const diceVal2 = Math.floor(Math.random() * 6) + 1;
+          document.getElementById("dice1-val").innerText = diceVal1;
+          document.getElementById("dice2-val").innerText = diceVal2;
+
+          const totalStep = diceVal1 + diceVal2;
+          p.position = (p.position + totalStep) % 36;
+          updatePieces();
+          showQuestion(p);
+        }
+      }, 50);
+    }
+
+    function showQuestion(player) {
+      if (activeQuestionPool.length === 0) {
+        refreshQuestionPool();
+      }
+
+      const qData = activeQuestionPool.pop();
+      const typeTag = document.getElementById("quiz-type-tag");
+      typeTag.innerText = qData.type === "select" ? "【選擇題】" : "【是非題】";
+
+      document.getElementById("quiz-q").innerText = qData.q;
+      const optsContainer = document.getElementById("options-container");
+      optsContainer.innerHTML = "";
+
+      qData.options.forEach((optText, index) => {
+        const optBtn = document.createElement("button");
+        optBtn.className = "option-btn";
+        optBtn.innerText = optText;
+        optBtn.onclick = () => handleAnswer(player, index === qData.ans);
+        optsContainer.appendChild(optBtn);
+      });
+    }
+
+    function handleAnswer(player, isCorrect) {
+      const msgElem = document.getElementById("result-msg");
+      const optsContainer = document.getElementById("options-container");
+      
+      optsContainer.innerHTML = "";
+
+      if (isCorrect) {
+        msgElem.style.color = "#4ade80";
+        msgElem.innerText = `⭕ ${player.name} 答對了！加碼前進 1 格！`;
+        player.position = (player.position + 1) % 36;
+      } else {
+        msgElem.style.color = "#f87171";
+        msgElem.innerText = `❌ ${player.name} 答錯囉！後退 1 格！`;
+        player.position = (player.position - 1 + 36) % 36;
+      }
+
+      updatePieces();
+
+      setTimeout(() => {
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+        updatePlayerDisplay();
+
+        document.getElementById("quiz-type-tag").innerText = "";
+        document.getElementById("quiz-q").innerText = "請點擊「擲骰子」開始！";
+        msgElem.innerText = "";
+        document.getElementById("roll-btn").disabled = false;
+      }, 1500);
+    }
+
+    /* 設定姓名視窗控制 */
+    function openNameModal() {
+      const container = document.getElementById("name-input-container");
+      container.innerHTML = "";
+      players.forEach((p, index) => {
+        const item = document.createElement("div");
+        item.className = "name-input-item";
+        item.innerHTML = `
+          <span style="color:${p.color}; font-weight:bold;">${p.id}.</span>
+          <input type="text" id="input-p-${p.id}" value="${p.name}" maxlength="2">
+        `;
+        container.appendChild(item);
+      });
+      document.getElementById("name-modal").style.display = "flex";
+    }
+
+    function saveNames() {
+      players.forEach(p => {
+        const inputVal = document.getElementById(`input-p-${p.id}`).value.trim();
+        p.name = inputVal || `${p.id}`;
+      });
+      document.getElementById("name-modal").style.display = "none";
+      updatePieces();
+      updatePlayerDisplay();
+    }
+
+    init();
+  </script>
+</body>
+</html>
