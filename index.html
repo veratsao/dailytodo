@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>兒童財商大富翁（大螢幕滿版雙骰子版）</title>
+  <title>兒童財商大富翁（雙骰子比例平衡重置版）</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -32,7 +32,7 @@
       padding: 8px;
     }
 
-    /* 頂部 Header & 姓名設定 */
+    /* 頂部 Header & 姓名設定/重置按鈕 */
     header {
       width: 100%;
       height: 6vh;
@@ -49,6 +49,11 @@
       color: var(--accent-color);
     }
 
+    .header-btns {
+      display: flex;
+      gap: 8px;
+    }
+
     .edit-names-btn {
       background: #3b82f6;
       color: #fff;
@@ -59,7 +64,18 @@
       cursor: pointer;
     }
 
-    /* 主體佈局：滿版佔用 92vh */
+    .reset-btn-header {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* 主體佈局 */
     .main-layout {
       width: 100%;
       height: 92vh;
@@ -68,11 +84,12 @@
       align-items: center;
     }
 
-    /* 橫向滿版地圖 (拉滿整個屏幕) */
+    /* 地圖容器：限制最大寬度以維持上下比例平衡 */
     .board-container {
       position: relative;
       width: 100%;
       height: 100%;
+      max-width: 125vh; /* 限制最大寬度避免橫向拉長失真 */
       background: var(--board-bg);
       border-radius: 12px;
       display: grid;
@@ -83,7 +100,7 @@
       border: 3px solid #334155;
     }
 
-    /* 大格子設計 */
+    /* 格子設計：使用 aspect-ratio 強制長寬比平衡 */
     .cell {
       background: #334155;
       border-radius: 6px;
@@ -97,6 +114,7 @@
       position: relative;
       text-align: center;
       user-select: none;
+      aspect-ratio: 1; /* 正方形長寬比，確保上下左右比例一致 */
     }
 
     .cell-type-start { background: #dc2626; }
@@ -104,11 +122,11 @@
     .cell-type-task  { background: #d97706; }
     .cell-type-tax   { background: #475569; }
 
-    /* 大棋子容器與大棋子 */
+    /* 棋子容器與棋子 */
     .pieces-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 3px;
+      gap: 2px;
       justify-content: center;
       align-content: center;
       width: 100%;
@@ -131,7 +149,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     }
 
-    /* 中央區域擴大 */
+    /* 中央區域 */
     .center-area {
       grid-column: 2 / 10;
       grid-row: 2 / 10;
@@ -148,9 +166,9 @@
     .dice-zone {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       background: rgba(255, 255, 255, 0.08);
-      padding: 8px 24px;
+      padding: 8px 20px;
       border-radius: 30px;
       border: 1px solid rgba(255,255,255,0.15);
     }
@@ -171,11 +189,11 @@
     }
 
     .dice-display {
-      width: 48px;
-      height: 48px;
+      width: 46px;
+      height: 46px;
       background: #ffffff;
       color: #1e293b;
-      font-size: 26px;
+      font-size: 24px;
       font-weight: bold;
       border-radius: 10px;
       display: flex;
@@ -188,12 +206,17 @@
       background: linear-gradient(135deg, #f59e0b, #d97706);
       color: white;
       border: none;
-      padding: 10px 24px;
-      font-size: 1.05rem;
+      padding: 10px 20px;
+      font-size: 1rem;
       font-weight: bold;
       border-radius: 20px;
       cursor: pointer;
       box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn-reset-center {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
     }
 
     .btn:disabled {
@@ -202,7 +225,7 @@
       cursor: not-allowed;
     }
 
-    /* 中央卡片擴大 */
+    /* 中央問答卡 */
     .quiz-card {
       width: 98%;
       height: 70%;
@@ -311,7 +334,10 @@
 
   <header>
     <h1>兒童財商大富翁</h1>
-    <button class="edit-names-btn" onclick="openNameModal()">⚙️ 自訂孩子名字（單字）</button>
+    <div class="header-btns">
+      <button class="edit-names-btn" onclick="openNameModal()">⚙️ 自訂孩子名字</button>
+      <button class="reset-btn-header" onclick="confirmResetGame()">🔄 重置遊戲</button>
+    </div>
   </header>
 
   <div class="main-layout">
@@ -319,7 +345,7 @@
       
       <div class="center-area">
         
-        <!-- 擲骰控制區 (雙骰子設計) -->
+        <!-- 擲骰控制區 (雙骰子 + 重置按鈕) -->
         <div class="dice-zone">
           <div class="player-tag">
             輪到玩家：<span id="current-player-name" style="color:var(--accent-color); font-size:1.4rem;">1</span>
@@ -329,6 +355,7 @@
             <div class="dice-display" id="dice2-val">?</div>
           </div>
           <button class="btn" id="roll-btn" onclick="playTurn()">擲骰子</button>
+          <button class="btn btn-reset-center" onclick="confirmResetGame()">重置</button>
         </div>
 
         <!-- 問答卡區塊 -->
@@ -366,7 +393,6 @@
       "#ec4899", "#f43f5e", "#a8a29e", "#64748b"
     ];
 
-    // 預設名字為數字單字 "1", "2", ... "19"
     const players = Array.from({ length: 19 }, (_, i) => ({
       id: i + 1,
       name: `${i + 1}`,
@@ -470,7 +496,7 @@
         const pElem = document.createElement("div");
         pElem.className = "piece";
         pElem.style.backgroundColor = p.color;
-        pElem.innerText = p.name; // 顯示自訂單字
+        pElem.innerText = p.name;
         document.getElementById(`pieces-${p.position}`).appendChild(pElem);
       });
     }
@@ -563,11 +589,31 @@
       }, 1500);
     }
 
+    /* 重置遊戲功能 */
+    function confirmResetGame() {
+      if (confirm("確定要重置遊戲嗎？所有玩家將回到起點。")) {
+        players.forEach(p => p.position = 0);
+        currentPlayerIndex = 0;
+        refreshQuestionPool();
+
+        document.getElementById("dice1-val").innerText = "?";
+        document.getElementById("dice2-val").innerText = "?";
+        document.getElementById("quiz-type-tag").innerText = "";
+        document.getElementById("quiz-q").innerText = "遊戲已重置，請點擊「擲骰子」開始！";
+        document.getElementById("result-msg").innerText = "";
+        document.getElementById("options-container").innerHTML = "";
+        document.getElementById("roll-btn").disabled = false;
+
+        updatePieces();
+        updatePlayerDisplay();
+      }
+    }
+
     /* 設定姓名視窗控制 */
     function openNameModal() {
       const container = document.getElementById("name-input-container");
       container.innerHTML = "";
-      players.forEach((p, index) => {
+      players.forEach((p) => {
         const item = document.createElement("div");
         item.className = "name-input-item";
         item.innerHTML = `
