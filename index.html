@@ -140,12 +140,51 @@
       color: var(--text-muted);
     }
 
-    /* 未完成統計與核銷 */
-    .student-tags-bar { 
-      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; 
-      background: var(--card-bg); padding: 14px; border-radius: var(--radius); 
-      box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); 
+    /* 未完成統計與核銷控制區域 */
+    .cumulative-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+      background: var(--card-bg);
+      padding: 16px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-color);
     }
+
+    .cumulative-filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-group label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .filter-group select {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .student-tags-bar { 
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+
     .tag-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border-color); background: white; cursor: pointer; font-size: 0.88rem; color: var(--text-muted); transition: 0.2s; }
     .tag-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
     .tag-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
@@ -153,6 +192,10 @@
     .data-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
     .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
     .data-table th { background-color: #f8fafb; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
+    
+    .btn-action-group { display: flex; gap: 6px; }
+    .btn-correct { padding: 5px 12px; background: #fffbebfb; color: #b45309; border: 1px solid #fde68a; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-correct:hover { background: #fef3c7; }
     .btn-verify { padding: 5px 12px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
     .btn-verify:hover { background: #d1fae5; }
 
@@ -161,25 +204,58 @@
     .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
     .checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
 
-    /* A4 列印格式設定 (欠繳清單字體放大) */
+    /* A4 列印格式：嚴格每頁 4 個卡片滿版 */
     @media print {
-      body { background: white; padding: 0; }
+      html, body {
+        width: 210mm;
+        background: white;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      
       .no-print { display: none !important; }
       .print-only { display: block !important; }
-      @page { size: A4 portrait; margin: 8mm; }
+      
+      @page { 
+        size: A4 portrait; 
+        margin: 5mm; 
+      }
 
-      .print-page { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8mm; width: 194mm; height: 275mm; page-break-after: always; }
-      .print-card { border: 2px solid #000; padding: 10mm; box-sizing: border-box; height: 132mm; overflow: hidden; }
-      .print-card h3 { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; font-size: 1.4rem; font-weight: bold; }
-      .print-cat { font-weight: bold; background: #e5e7eb; padding: 4px 8px; font-size: 1.1rem; margin-top: 8px; border-radius: 4px; display: inline-block; }
-      .print-list { list-style: square; padding-left: 24px; font-size: 1.05rem; margin-top: 6px; line-height: 1.5; }
-      .print-list li { margin-bottom: 4px; }
+      .print-page { 
+        display: grid !important; 
+        grid-template-columns: 1fr 1fr !important; 
+        grid-template-rows: 1fr 1fr !important; 
+        gap: 5mm !important; 
+        width: 200mm !important; 
+        height: 285mm !important; 
+        box-sizing: border-box !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        overflow: hidden !important;
+      }
+
+      .print-card { 
+        border: 2px solid #000; 
+        padding: 6mm 8mm; 
+        box-sizing: border-box; 
+        height: 138mm !important; 
+        overflow: hidden; 
+        display: flex;
+        flex-direction: column;
+      }
+
+      .print-card h3 { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; font-size: 1.3rem; font-weight: bold; }
+      .print-cat { font-weight: bold; background: #e5e7eb; padding: 2px 6px; font-size: 1rem; margin-top: 5px; border-radius: 4px; display: inline-block; }
+      .print-list { list-style: square; padding-left: 20px; font-size: 0.95rem; margin-top: 3px; line-height: 1.35; }
+      .print-list li { margin-bottom: 2px; }
       .status-tag-print { font-weight: bold; margin-left: 4px; }
     }
 
     /* Modal 彈出視窗質感設計 */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 480px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 520px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
     .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; }
     .form-group { margin-bottom: 14px; }
     .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-main); }
@@ -218,7 +294,19 @@
 
   <!-- 2. 未完成統計與核銷 -->
   <main id="cumulative-view" class="tab-content no-print">
-    <div class="student-tags-bar" id="student-tags"></div>
+    <div class="cumulative-controls">
+      <div class="cumulative-filter-row">
+        <div class="filter-group">
+          <label>快速選取單項作業：</label>
+          <select id="task-filter-select" onchange="filterByTask(this.value)">
+            <option value="ALL">顯示全部作業項目</option>
+          </select>
+        </div>
+        <button style="padding:6px 12px; background:#fef2f2; color:#dc2626; border:1px solid #fca5a5; border-radius:6px; cursor:pointer; font-weight:600;" onclick="openManageTasksModal()">🗑️ 管理/刪除歷史任務</button>
+      </div>
+      <div class="student-tags-bar" id="student-tags"></div>
+    </div>
+
     <table class="data-table">
       <thead>
         <tr>
@@ -227,7 +315,7 @@
           <th>科目分類</th>
           <th>作業名稱</th>
           <th>目前狀態</th>
-          <th>核銷操作</th>
+          <th>核銷與狀態變更</th>
         </tr>
       </thead>
       <tbody id="cumulative-list"></tbody>
@@ -241,16 +329,14 @@
       <div style="margin-top: 10px;">
         <button onclick="selectAllPrint(true)" style="padding:4px 10px; border-radius:6px; cursor:pointer;">全選</button>
         <button onclick="selectAllPrint(false)" style="padding:4px 10px; border-radius:6px; cursor:pointer;">取消全選</button>
-        <button class="btn-print" style="margin-left: 15px; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600;" onclick="triggerPrint()">開啟 A4 預覽與列印</button>
+        <button class="btn-print" style="margin-left: 15px; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600;" onclick="triggerPrint()">開啟 A4 預覽與列印 (每頁4格)</button>
       </div>
       <div class="checkbox-grid" id="print-checkboxes"></div>
     </div>
   </main>
 
   <!-- A4 列印區 -->
-  <div class="print-only">
-    <div class="print-page" id="print-container"></div>
-  </div>
+  <div class="print-only" id="print-container"></div>
 
   <!-- 新增任務 Modal -->
   <div class="modal" id="task-modal">
@@ -276,6 +362,21 @@
     </div>
   </div>
 
+  <!-- 管理/刪除歷史任務 Modal -->
+  <div class="modal" id="manage-tasks-modal">
+    <div class="modal-content">
+      <h3>管理與刪除歷史作業任務</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">點擊刪除按鈕即可清理過去過期或無效的作業任務：</p>
+      <hr style="margin: 12px 0; border:0; border-top:1px solid var(--border-color);">
+      <table class="student-edit-table">
+        <tbody id="manage-tasks-list"></tbody>
+      </table>
+      <div class="modal-btns">
+        <button onclick="closeManageTasksModal()">關閉</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 科目分類管理 Modal -->
   <div class="modal" id="category-modal">
     <div class="modal-content">
@@ -294,7 +395,7 @@
         <button onclick="closeCategoryModal()">完成</button>
       </div>
     </div>
-  </div>
+  </main>
 
   <!-- 學生管理 Modal -->
   <div class="modal" id="student-modal">
@@ -314,12 +415,11 @@
         <button onclick="closeStudentModal()">關閉</button>
       </div>
     </div>
-  </main>
+  </div>
 
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
 
-    // 取得當前日期格式 YYYY-MM-DD
     function getTodayString() {
       const today = new Date();
       const yyyy = today.getFullYear();
@@ -328,7 +428,6 @@
       return `${yyyy}-${mm}-${dd}`;
     }
 
-    // 初始預設範例資料
     const defaultState = {
       categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
       students: ["01號 張小明", "02號 李小華", "03號 王大同", "04號 陳美麗", "05號 林阿強"],
@@ -345,6 +444,7 @@
 
     let state = JSON.parse(JSON.stringify(defaultState));
     let selectedStudentFilter = 'ALL';
+    let selectedTaskFilter = 'ALL';
 
     function init() {
       const saved = localStorage.getItem("tracker_data_v4");
@@ -357,6 +457,7 @@
       }
       sortStudentsByNumber();
       renderDailyBoard();
+      renderTaskFilterOptions();
       renderStudentTags();
       renderCumulative();
       renderPrintCheckboxes();
@@ -370,7 +471,6 @@
       }
     }
 
-    // 依名字前面的數字（座號）小到大排序
     function sortStudentsByNumber() {
       if (state.students && state.students.length > 0) {
         state.students.sort((a, b) => {
@@ -387,7 +487,6 @@
       }
     }
 
-    /* 一鍵重置資料 */
     function resetAllData() {
       const confirmFirst = confirm("警告：您確定要重置系統資料嗎？\n這將會【完全清空】所有任務、學生名單與紀錄，方便新班級使用。");
       if (confirmFirst) {
@@ -401,7 +500,7 @@
           };
           saveData();
           init();
-          alert("所有任務與學生名單已成功清空！請點擊「管理學生名單」與「+ 新增作業欄位」開始建置新班級資料。");
+          alert("所有任務與學生名單已成功清空！");
         }
       }
     }
@@ -417,6 +516,7 @@
         renderDailyBoard();
       } else if (tab === 'cumulative') {
         document.getElementById('cumulative-view').classList.add('active');
+        renderTaskFilterOptions();
         renderStudentTags();
         renderCumulative();
       } else if (tab === 'print') {
@@ -425,7 +525,6 @@
       }
     }
 
-    // 1. 每日看板渲染（只顯示「當天日期」的作業內容）
     function renderDailyBoard() {
       const board = document.getElementById('task-board');
       board.innerHTML = '';
@@ -483,7 +582,6 @@
       });
     }
 
-    /* 修改任務名稱功能 */
     function editTaskName(taskId) {
       const task = state.tasks.find(t => t.id === taskId);
       if (!task) return;
@@ -495,6 +593,7 @@
           task.name = trimmed;
           saveData();
           renderDailyBoard();
+          renderCumulative();
         } else {
           alert("作業名稱不能為空！");
         }
@@ -513,7 +612,135 @@
       renderDailyBoard();
     }
 
-    // 科目分類管理 Modal 邏輯
+    function renderTaskFilterOptions() {
+      const select = document.getElementById('task-filter-select');
+      select.innerHTML = '<option value="ALL">顯示全部作業項目</option>';
+      state.tasks.forEach(task => {
+        const selected = selectedTaskFilter == task.id ? 'selected' : '';
+        select.innerHTML += `<option value="${task.id}" ${selected}>[${task.date}] ${task.category} - ${task.name}</option>`;
+      });
+    }
+
+    function filterByTask(taskId) {
+      selectedTaskFilter = taskId;
+      renderCumulative();
+    }
+
+    function renderStudentTags() {
+      const container = document.getElementById('student-tags');
+      container.innerHTML = `<button class="tag-btn ${selectedStudentFilter==='ALL'?'active':''}" onclick="filterByStudent('ALL')">全部學生</button>`;
+      state.students.forEach(student => {
+        const active = selectedStudentFilter === student ? 'active' : '';
+        container.innerHTML += `<button class="tag-btn ${active}" onclick="filterByStudent('${student}')">${student}</button>`;
+      });
+    }
+
+    function filterByStudent(student) {
+      selectedStudentFilter = student;
+      renderStudentTags();
+      renderCumulative();
+    }
+
+    function renderCumulative() {
+      const list = document.getElementById('cumulative-list');
+      list.innerHTML = '';
+
+      if (state.students.length === 0 || state.tasks.length === 0) {
+        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">尚無學生或任務資料</td></tr>`;
+        return;
+      }
+
+      let count = 0;
+      state.students.forEach(student => {
+        if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== student) return;
+
+        state.tasks.forEach(task => {
+          if (selectedTaskFilter !== 'ALL' && selectedTaskFilter != task.id) return;
+
+          const key = `${student}_${task.id}`;
+          const status = state.records[key] || 'unsubmitted';
+
+          if (status === 'unsubmitted' || status === 'correcting') {
+            count++;
+            const statusText = status === 'unsubmitted' ? '<span style="color:var(--danger);font-weight:600;">未繳</span>' : '<span style="color:var(--warning);font-weight:600;">訂正</span>';
+            list.innerHTML += `
+              <tr>
+                <td><b>${student}</b></td>
+                <td>${task.date || '-'}</td>
+                <td>${task.category}</td>
+                <td>${task.name}</td>
+                <td>${statusText}</td>
+                <td>
+                  <div class="btn-action-group">
+                    <button class="btn-correct" onclick="setTaskStatus('${student}', ${task.id}, 'correcting')">標記(訂正)</button>
+                    <button class="btn-verify" onclick="setTaskStatus('${student}', ${task.id}, 'done')">核銷(完成)</button>
+                  </div>
+                </td>
+              </tr>`;
+          }
+        });
+      });
+
+      if (count === 0) {
+        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--success); padding:20px; font-weight:600;">🎉 所選條件下目前沒有欠繳或需要訂正的作業！</td></tr>`;
+      }
+    }
+
+    function setTaskStatus(student, taskId, newStatus) {
+      state.records[`${student}_${taskId}`] = newStatus;
+      saveData();
+      renderCumulative();
+      renderDailyBoard();
+    }
+
+    function openManageTasksModal() {
+      renderManageTasksList();
+      document.getElementById('manage-tasks-modal').style.display = 'flex';
+    }
+
+    function closeManageTasksModal() {
+      document.getElementById('manage-tasks-modal').style.display = 'none';
+      renderTaskFilterOptions();
+      renderCumulative();
+      renderDailyBoard();
+    }
+
+    function renderManageTasksList() {
+      const tbody = document.getElementById('manage-tasks-list');
+      tbody.innerHTML = '';
+      if (state.tasks.length === 0) {
+        tbody.innerHTML = `<tr><td style="text-align:center; color:var(--text-muted); padding:10px;">目前尚無任何任務項目</td></tr>`;
+        return;
+      }
+      state.tasks.forEach(task => {
+        tbody.innerHTML += `
+          <tr>
+            <td>
+              <b>[${task.date}] ${task.category}</b> - ${task.name}
+            </td>
+            <td style="width:70px; text-align:right;">
+              <button style="color:var(--danger); border:1px solid #fca5a5; background:#fef2f2; padding:4px 8px; border-radius:6px; cursor:pointer;" onclick="deleteTaskInModal(${task.id})">刪除</button>
+            </td>
+          </tr>`;
+      });
+    }
+
+    function deleteTaskInModal(taskId) {
+      if (confirm("確定要徹底刪除此項作業任務及其所有紀錄嗎？")) {
+        deleteTask(taskId);
+        renderManageTasksList();
+      }
+    }
+
+    function deleteTask(taskId) {
+      state.tasks = state.tasks.filter(t => t.id !== taskId);
+      for (let key in state.records) {
+        if (key.endsWith(`_${taskId}`)) delete state.records[key];
+      }
+      saveData();
+      renderDailyBoard();
+    }
+
     function openCategoryModal() {
       renderCategoryList();
       document.getElementById('category-modal').style.display = 'flex';
@@ -562,7 +789,6 @@
       }
     }
 
-    // 新增任務 (帶入預設今日日期)
     function openTaskModal() {
       if (!state.categories || state.categories.length === 0) {
         alert("請先至少建立一個科目分類！");
@@ -603,72 +829,6 @@
       renderDailyBoard();
     }
 
-    function deleteTask(taskId) {
-      if (confirm("確定要刪除這個任務欄位嗎？")) {
-        state.tasks = state.tasks.filter(t => t.id !== taskId);
-        for (let key in state.records) {
-          if (key.endsWith(`_${taskId}`)) delete state.records[key];
-        }
-        saveData();
-        renderDailyBoard();
-      }
-    }
-
-    // 2. 累計核銷 (會包含所有歷史日期的未完成項目)
-    function renderStudentTags() {
-      const container = document.getElementById('student-tags');
-      container.innerHTML = `<button class="tag-btn ${selectedStudentFilter==='ALL'?'active':''}" onclick="filterByStudent('ALL')">全部學生</button>`;
-      state.students.forEach(student => {
-        const active = selectedStudentFilter === student ? 'active' : '';
-        container.innerHTML += `<button class="tag-btn ${active}" onclick="filterByStudent('${student}')">${student}</button>`;
-      });
-    }
-
-    function filterByStudent(student) {
-      selectedStudentFilter = student;
-      renderStudentTags();
-      renderCumulative();
-    }
-
-    function renderCumulative() {
-      const list = document.getElementById('cumulative-list');
-      list.innerHTML = '';
-
-      if (state.students.length === 0 || state.tasks.length === 0) {
-        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">尚無學生或任務資料</td></tr>`;
-        return;
-      }
-
-      state.students.forEach(student => {
-        if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== student) return;
-
-        state.tasks.forEach(task => {
-          const key = `${student}_${task.id}`;
-          const status = state.records[key] || 'unsubmitted';
-
-          if (status === 'unsubmitted' || status === 'correcting') {
-            const statusText = status === 'unsubmitted' ? '<span style="color:var(--danger);font-weight:600;">未繳</span>' : '<span style="color:var(--warning);font-weight:600;">訂正</span>';
-            list.innerHTML += `
-              <tr>
-                <td><b>${student}</b></td>
-                <td>${task.date || '-'}</td>
-                <td>${task.category}</td>
-                <td>${task.name}</td>
-                <td>${statusText}</td>
-                <td><button class="btn-verify" onclick="verifyTask('${student}', ${task.id})">核銷(完成)</button></td>
-              </tr>`;
-          }
-        });
-      });
-    }
-
-    function verifyTask(student, taskId) {
-      state.records[`${student}_${taskId}`] = 'done';
-      saveData();
-      renderCumulative();
-    }
-
-    // 3. 列印功能 (會包含所有歷史日期的未完成項目，且字體已放大設計)
     function renderPrintCheckboxes() {
       const container = document.getElementById('print-checkboxes');
       container.innerHTML = '';
@@ -685,6 +845,7 @@
       document.querySelectorAll('.print-chk').forEach(chk => chk.checked = select);
     }
 
+    /* 升級版 triggerPrint：當學生欠繳項目超過上限時，自動拆分成多張卡片 (1/2, 2/2) */
     function triggerPrint() {
       const selectedStudents = Array.from(document.querySelectorAll('.print-chk:checked')).map(cb => cb.value);
       if (selectedStudents.length === 0) return alert("請至少選取一位學生！");
@@ -692,44 +853,90 @@
       const printContainer = document.getElementById('print-container');
       printContainer.innerHTML = '';
 
-      for (let i = 0; i < selectedStudents.length; i += 4) {
-        const pageStudents = selectedStudents.slice(i, i + 4);
-        let pageHtml = `<div class="print-page">`;
+      // 每張卡片最多容納的「作業條目數」（超過會自動分成多個區塊）
+      const ITEMS_PER_CARD = 8;
+      const allCards = [];
 
-        pageStudents.forEach(student => {
-          pageHtml += `<div class="print-card"><h3>${student} - 欠繳與訂正清單</h3>`;
-          const catMap = {};
-          state.tasks.forEach(task => {
-            const status = state.records[`${student}_${task.id}`] || 'unsubmitted';
-            if (status === 'unsubmitted' || status === 'correcting') {
-              if (!catMap[task.category]) catMap[task.category] = [];
-              catMap[task.category].push({ name: task.name, date: task.date, status });
-            }
+      selectedStudents.forEach(student => {
+        // 收集學生所有未完成／訂正項目
+        const items = [];
+        state.tasks.forEach(task => {
+          const status = state.records[`${student}_${task.id}`] || 'unsubmitted';
+          if (status === 'unsubmitted' || status === 'correcting') {
+            items.push({
+              category: task.category,
+              name: task.name,
+              date: task.date,
+              status: status
+            });
+          }
+        });
+
+        if (items.length === 0) {
+          allCards.push({
+            student: student,
+            pageLabel: '',
+            contentHtml: `<p style="margin-top:15px; color:green; font-size:1.2rem; font-weight:bold;">目前作業全數完成！</p>`
           });
+        } else {
+          // 計算需要分幾張卡片
+          const totalChunks = Math.ceil(items.length / ITEMS_PER_CARD);
 
-          if (Object.keys(catMap).length === 0) {
-            pageHtml += `<p style="margin-top:15px; color:green; font-size:1.2rem; font-weight:bold;">目前作業全數完成！</p>`;
-          } else {
+          for (let c = 0; c < totalChunks; c++) {
+            const chunkItems = items.slice(c * ITEMS_PER_CARD, (c + 1) * ITEMS_PER_CARD);
+            const pageLabel = totalChunks > 1 ? ` (${c + 1}/${totalChunks})` : '';
+
+            // 依科目分類整理 chunkItems
+            const catMap = {};
+            chunkItems.forEach(item => {
+              if (!catMap[item.category]) catMap[item.category] = [];
+              catMap[item.category].push(item);
+            });
+
+            let cardContentHtml = '';
             for (let cat in catMap) {
-              pageHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
+              cardContentHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
               catMap[cat].forEach(item => {
                 const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#dc2626;">(未繳)</span>' : '<span class="status-tag-print" style="color:#d97706;">(訂正)</span>';
                 const dateStr = item.date ? `[${item.date}] ` : '';
-                pageHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
+                cardContentHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
               });
-              pageHtml += `</ul>`;
+              cardContentHtml += `</ul>`;
             }
+
+            allCards.push({
+              student: student,
+              pageLabel: pageLabel,
+              contentHtml: cardContentHtml
+            });
           }
-          pageHtml += `</div>`;
+        }
+      });
+
+      // 每 4 張卡片組成一頁 A4 print-page
+      let fullPagesHtml = '';
+      for (let i = 0; i < allCards.length; i += 4) {
+        const pageCards = allCards.slice(i, i + 4);
+        let pageCardsHtml = '';
+
+        pageCards.forEach(card => {
+          pageCardsHtml += `
+            <div class="print-card">
+              <h3>${card.student}${card.pageLabel} - 欠繳與訂正清單</h3>
+              ${card.contentHtml}
+            </div>`;
         });
 
-        pageHtml += `</div>`;
-        printContainer.innerHTML += pageHtml;
+        fullPagesHtml += `<div class="print-page">${pageCardsHtml}</div>`;
       }
-      window.print();
+
+      printContainer.innerHTML = fullPagesHtml;
+      
+      setTimeout(() => {
+        window.print();
+      }, 100);
     }
 
-    // 學生名單管理
     function openStudentModal() {
       renderStudentEditList();
       document.getElementById('student-modal').style.display = 'flex';
