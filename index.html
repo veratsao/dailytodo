@@ -306,7 +306,7 @@
         <button style="margin-top:6px; padding:6px 12px; background:#f1f5f9; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;" onclick="saveBatchStudents()">批量加入名單</button>
       </div>
       <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
-      <h4>現有名單 (已按筆畫排序)：</h4>
+      <h4>現有名單 (已按字首排序)：</h4>
       <table class="student-edit-table">
         <tbody id="student-edit-list"></tbody>
       </table>
@@ -314,7 +314,7 @@
         <button onclick="closeStudentModal()">關閉</button>
       </div>
     </div>
-  </main>
+  </div>
 
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
@@ -331,7 +331,7 @@
     // 初始預設範例資料
     const defaultState = {
       categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
-      students: ["張小明", "李小華", "王大同", "陳美麗", "林阿強"],
+      students: ["陳美麗", "林阿強", "李小華", "王大同", "張小明"],
       tasks: [
         { id: 1, date: getTodayString(), category: "國語", name: "國語習作 L3" },
         { id: 2, date: getTodayString(), category: "數學", name: "數學習作 P.15" }
@@ -355,7 +355,7 @@
           state = JSON.parse(JSON.stringify(defaultState));
         }
       }
-      sortStudentsByStroke();
+      sortStudentsByFirstLetter();
       renderDailyBoard();
       renderStudentTags();
       renderCumulative();
@@ -363,16 +363,17 @@
     }
 
     function saveData() {
-      sortStudentsByStroke();
+      sortStudentsByFirstLetter();
       localStorage.setItem("tracker_data_v4", JSON.stringify(state));
       if (!GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) {
         fetch(GAS_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(state) });
       }
     }
 
-    function sortStudentsByStroke() {
+    // 依字首（拼音/字母首字）排序學生名單
+    function sortStudentsByFirstLetter() {
       if (state.students && state.students.length > 0) {
-        state.students.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+        state.students.sort((a, b) => a.localeCompare(b, 'zh-Hans-CN', { sensitivity: 'base' }));
       }
     }
 
