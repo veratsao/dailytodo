@@ -92,6 +92,7 @@
       box-shadow: var(--shadow-md); border: 1px solid var(--border-color); padding: 16px; position: relative; 
     }
     .task-header { margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; padding-right: 28px; }
+    .task-meta { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-muted); }
     .task-title-container { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
     .task-title { font-size: 1.05rem; font-weight: 700; color: var(--text-main); line-height: 1.4; flex-grow: 1; word-break: break-all; }
     .btn-edit-title { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; border-radius: 4px; }
@@ -100,6 +101,10 @@
     .task-category-tag { 
       font-size: 0.75rem; background: #e0e7ff; color: #3730a3; padding: 3px 8px; 
       border-radius: 20px; font-weight: 600; display: inline-block; 
+    }
+    .task-date-tag {
+      font-size: 0.75rem; background: #f1f5f9; color: var(--text-muted); padding: 3px 8px;
+      border-radius: 20px; font-weight: 500; display: inline-block;
     }
     
     .btn-delete-task { 
@@ -218,6 +223,7 @@
       <thead>
         <tr>
           <th>學生姓名</th>
+          <th>作業日期</th>
           <th>科目分類</th>
           <th>作業名稱</th>
           <th>目前狀態</th>
@@ -251,6 +257,10 @@
     <div class="modal-content">
       <h3>新增作業任務</h3>
       <div class="form-group" style="margin-top:12px;">
+        <label>作業日期：</label>
+        <input type="date" id="task-date-input">
+      </div>
+      <div class="form-group">
         <label>選擇預設科目分類：</label>
         <select id="task-category-select"></select>
       </div>
@@ -304,18 +314,27 @@
         <button onclick="closeStudentModal()">關閉</button>
       </div>
     </div>
-  </div>
+  </main>
 
   <script>
     const GAS_WEB_APP_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+
+    // 取得當前日期格式 YYYY-MM-DD
+    function getTodayString() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
 
     // 初始預設範例資料
     const defaultState = {
       categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
       students: ["張小明", "李小華", "王大同", "陳美麗", "林阿強"],
       tasks: [
-        { id: 1, category: "國語", name: "國語習作 L3" },
-        { id: 2, category: "數學", name: "數學習作 P.15" }
+        { id: 1, date: getTodayString(), category: "國語", name: "國語習作 L3" },
+        { id: 2, date: getTodayString(), category: "數學", name: "數學習作 P.15" }
       ],
       records: {
         "張小明_1": "unsubmitted",
@@ -357,7 +376,7 @@
       }
     }
 
-    /* 2. 一鍵重置資料：任務與學生名單全部清空 */
+    /* 一鍵重置資料 */
     function resetAllData() {
       const confirmFirst = confirm("警告：您確定要重置系統資料嗎？\n這將會【完全清空】所有任務、學生名單與紀錄，方便新班級使用。");
       if (confirmFirst) {
@@ -395,26 +414,33 @@
       }
     }
 
-    // 1. 每日看板渲染
+    // 1. 每日看板渲染（只顯示「當天日期」的作業內容）
     function renderDailyBoard() {
       const board = document.getElementById('task-board');
       board.innerHTML = '';
 
-      if (state.tasks.length === 0) {
+      const todayStr = getTodayString();
+      // 只篩選出作業日期等於今天的任務
+      const todayTasks = state.tasks.filter(t => t.date === todayStr);
+
+      if (todayTasks.length === 0) {
         board.innerHTML = `
           <div class="empty-state-box">
-            <h3>目前尚無作業任務</h3>
-            <p style="margin-top:8px;">請點擊上方「+ 新增作業欄位」按鈕建立新作業，或先至「管理學生名單」建立班級名單。</p>
+            <h3>今日 (${todayStr}) 尚無作業任務</h3>
+            <p style="margin-top:8px;">請點擊上方「+ 新增作業欄位」建立今日作業。<br>過往未完成的作業可至「未完成統計與核銷」或「列印欠繳清單」查看與核銷。</p>
           </div>`;
         return;
       }
 
-      state.tasks.forEach(task => {
+      todayTasks.forEach(task => {
         let colHtml = `
           <div class="task-column">
             <button class="btn-delete-task" title="刪除此任務" onclick="deleteTask(${task.id})">&times;</button>
             <div class="task-header">
-              <span class="task-category-tag">${task.category}</span>
+              <div class="task-meta">
+                <span class="task-category-tag">${task.category}</span>
+                <span class="task-date-tag">📅 ${task.date}</span>
+              </div>
               <div class="task-title-container">
                 <div class="task-title" id="task-title-${task.id}">${task.name}</div>
                 <button class="btn-edit-title" title="修改作業名稱" onclick="editTaskName(${task.id})">✏️</button>
@@ -447,7 +473,7 @@
       });
     }
 
-    /* 1. 修改任務名稱功能 */
+    /* 修改任務名稱功能 */
     function editTaskName(taskId) {
       const task = state.tasks.find(t => t.id === taskId);
       if (!task) return;
@@ -526,13 +552,17 @@
       }
     }
 
-    // 新增任務
+    // 新增任務 (帶入預設今日日期)
     function openTaskModal() {
       if (!state.categories || state.categories.length === 0) {
         alert("請先至少建立一個科目分類！");
         openCategoryModal();
         return;
       }
+      
+      // 自動設為當日日期
+      document.getElementById('task-date-input').value = getTodayString();
+
       const select = document.getElementById('task-category-select');
       select.innerHTML = '';
       state.categories.forEach(cat => {
@@ -547,12 +577,13 @@
     }
 
     function saveNewTask() {
+      const date = document.getElementById('task-date-input').value || getTodayString();
       const category = document.getElementById('task-category-select').value;
       const name = document.getElementById('task-name-input').value.trim();
       if (!name) return alert("請輸入作業名稱！");
 
       const newTaskId = Date.now();
-      state.tasks.push({ id: newTaskId, category, name });
+      state.tasks.push({ id: newTaskId, date, category, name });
 
       state.students.forEach(student => {
         state.records[`${student}_${newTaskId}`] = 'unsubmitted';
@@ -574,7 +605,7 @@
       }
     }
 
-    // 2. 累計核銷
+    // 2. 累計核銷 (會包含所有歷史日期的未完成項目)
     function renderStudentTags() {
       const container = document.getElementById('student-tags');
       container.innerHTML = `<button class="tag-btn ${selectedStudentFilter==='ALL'?'active':''}" onclick="filterByStudent('ALL')">全部學生</button>`;
@@ -595,7 +626,7 @@
       list.innerHTML = '';
 
       if (state.students.length === 0 || state.tasks.length === 0) {
-        list.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">尚無學生或任務資料</td></tr>`;
+        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">尚無學生或任務資料</td></tr>`;
         return;
       }
 
@@ -611,6 +642,7 @@
             list.innerHTML += `
               <tr>
                 <td><b>${student}</b></td>
+                <td>${task.date || '-'}</td>
                 <td>${task.category}</td>
                 <td>${task.name}</td>
                 <td>${statusText}</td>
@@ -627,7 +659,7 @@
       renderCumulative();
     }
 
-    // 3. 列印功能 (字體已放大設計)
+    // 3. 列印功能 (會包含所有歷史日期的未完成項目，且字體已放大設計)
     function renderPrintCheckboxes() {
       const container = document.getElementById('print-checkboxes');
       container.innerHTML = '';
@@ -662,7 +694,7 @@
             const status = state.records[`${student}_${task.id}`] || 'unsubmitted';
             if (status === 'unsubmitted' || status === 'correcting') {
               if (!catMap[task.category]) catMap[task.category] = [];
-              catMap[task.category].push({ name: task.name, status });
+              catMap[task.category].push({ name: task.name, date: task.date, status });
             }
           });
 
@@ -673,7 +705,8 @@
               pageHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
               catMap[cat].forEach(item => {
                 const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#dc2626;">(未繳)</span>' : '<span class="status-tag-print" style="color:#d97706;">(訂正)</span>';
-                pageHtml += `<li>${item.name} ${tag}</li>`;
+                const dateStr = item.date ? `[${item.date}] ` : '';
+                pageHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
               });
               pageHtml += `</ul>`;
             }
