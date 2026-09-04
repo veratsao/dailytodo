@@ -86,7 +86,7 @@
     .tab-content.active { display: block; }
 
     /* 每日作業狀態 - 看板卡片 */
-    .task-board { display: flex; overflow-x: auto; gap: 18px; padding-bottom: 20px; align-items: flex-start; }
+    .task-board { display: flex; overflow-x: auto; gap: 18px; padding-bottom: 20px; align-items: flex-start; min-height: 200px; }
     .task-column { 
       background: var(--card-bg); width: 300px; min-width: 300px; border-radius: var(--radius); 
       box-shadow: var(--shadow-md); border: 1px solid var(--border-color); padding: 16px; position: relative; 
@@ -125,6 +125,16 @@
     .status-done { background: #f1f5f9; color: #94a3b8; box-shadow: none; }
     .status-done .status-sub { color: #cbd5e1; }
 
+    .empty-state-box {
+      width: 100%;
+      background: var(--card-bg);
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
     /* 未完成統計與核銷 */
     .student-tags-bar { 
       display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; 
@@ -146,7 +156,7 @@
     .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
     .checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
 
-    /* A4 列印格式設定 (已放大欠繳清單字體) */
+    /* A4 列印格式設定 (欠繳清單字體放大) */
     @media print {
       body { background: white; padding: 0; }
       .no-print { display: none !important; }
@@ -297,8 +307,9 @@
   </div>
 
   <script>
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
+    const GAS_WEB_APP_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
 
+    // 初始預設範例資料
     const defaultState = {
       categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
       students: ["張小明", "李小華", "王大同", "陳美麗", "林阿強"],
@@ -341,19 +352,26 @@
     }
 
     function sortStudentsByStroke() {
-      state.students.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+      if (state.students && state.students.length > 0) {
+        state.students.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+      }
     }
 
-    /* 新增功能 2：一鍵重置資料 */
+    /* 2. 一鍵重置資料：任務與學生名單全部清空 */
     function resetAllData() {
-      const confirmFirst = confirm("警告：您確定要重置系統資料嗎？\n這將會清除現有的所有任務與學生紀錄，以利新班級使用。");
+      const confirmFirst = confirm("警告：您確定要重置系統資料嗎？\n這將會【完全清空】所有任務、學生名單與紀錄，方便新班級使用。");
       if (confirmFirst) {
-        const confirmSecond = confirm("請再次確認：此動作無法復原！是否繼續重置？");
+        const confirmSecond = confirm("請再次確認：所有學生與任務資料將被完全刪除且無法復原！是否繼續？");
         if (confirmSecond) {
-          state = JSON.parse(JSON.stringify(defaultState));
+          state = {
+            categories: state.categories && state.categories.length > 0 ? state.categories : ["國語", "數學", "英文", "社會", "自然", "綜合"],
+            students: [],
+            tasks: [],
+            records: {}
+          };
           saveData();
           init();
-          alert("系統資料已成功重置！");
+          alert("所有任務與學生名單已成功清空！請點擊「管理學生名單」與「+ 新增作業欄位」開始建置新班級資料。");
         }
       }
     }
@@ -382,6 +400,15 @@
       const board = document.getElementById('task-board');
       board.innerHTML = '';
 
+      if (state.tasks.length === 0) {
+        board.innerHTML = `
+          <div class="empty-state-box">
+            <h3>目前尚無作業任務</h3>
+            <p style="margin-top:8px;">請點擊上方「+ 新增作業欄位」按鈕建立新作業，或先至「管理學生名單」建立班級名單。</p>
+          </div>`;
+        return;
+      }
+
       state.tasks.forEach(task => {
         let colHtml = `
           <div class="task-column">
@@ -395,28 +422,32 @@
             </div>
             <div class="student-grid-2col">`;
 
-        state.students.forEach(student => {
-          const key = `${student}_${task.id}`;
-          const status = state.records[key] || 'unsubmitted';
-          
-          let statusClass = 'status-unsubmitted';
-          let statusText = '未繳';
-          if (status === 'correcting') { statusClass = 'status-correcting'; statusText = '訂正'; }
-          else if (status === 'done') { statusClass = 'status-done'; statusText = '完成'; }
+        if (state.students.length === 0) {
+          colHtml += `<div style="grid-column: span 2; text-align:center; color:var(--text-muted); padding:10px; font-size:0.85rem;">尚未建立學生名單</div>`;
+        } else {
+          state.students.forEach(student => {
+            const key = `${student}_${task.id}`;
+            const status = state.records[key] || 'unsubmitted';
+            
+            let statusClass = 'status-unsubmitted';
+            let statusText = '未繳';
+            if (status === 'correcting') { statusClass = 'status-correcting'; statusText = '訂正'; }
+            else if (status === 'done') { statusClass = 'status-done'; statusText = '完成'; }
 
-          colHtml += `
-            <div class="student-block ${statusClass}" onclick="cycleStatus('${student}', ${task.id})">
-              <span>${student}</span>
-              <span class="status-sub">${statusText}</span>
-            </div>`;
-        });
+            colHtml += `
+              <div class="student-block ${statusClass}" onclick="cycleStatus('${student}', ${task.id})">
+                <span>${student}</span>
+                <span class="status-sub">${statusText}</span>
+              </div>`;
+          });
+        }
 
         colHtml += `</div></div>`;
         board.innerHTML += colHtml;
       });
     }
 
-    /* 新增功能 1：修改任務名稱 */
+    /* 1. 修改任務名稱功能 */
     function editTaskName(taskId) {
       const task = state.tasks.find(t => t.id === taskId);
       if (!task) return;
@@ -497,6 +528,11 @@
 
     // 新增任務
     function openTaskModal() {
+      if (!state.categories || state.categories.length === 0) {
+        alert("請先至少建立一個科目分類！");
+        openCategoryModal();
+        return;
+      }
       const select = document.getElementById('task-category-select');
       select.innerHTML = '';
       state.categories.forEach(cat => {
@@ -558,6 +594,11 @@
       const list = document.getElementById('cumulative-list');
       list.innerHTML = '';
 
+      if (state.students.length === 0 || state.tasks.length === 0) {
+        list.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">尚無學生或任務資料</td></tr>`;
+        return;
+      }
+
       state.students.forEach(student => {
         if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== student) return;
 
@@ -590,6 +631,10 @@
     function renderPrintCheckboxes() {
       const container = document.getElementById('print-checkboxes');
       container.innerHTML = '';
+      if (state.students.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-muted);">尚無學生名單可供選擇。</p>`;
+        return;
+      }
       state.students.forEach(student => {
         container.innerHTML += `<label><input type="checkbox" class="print-chk" value="${student}" checked> ${student}</label>`;
       });
@@ -670,6 +715,10 @@
     function renderStudentEditList() {
       const tbody = document.getElementById('student-edit-list');
       tbody.innerHTML = '';
+      if (state.students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--text-muted); padding:10px;">目前無學生名單</td></tr>`;
+        return;
+      }
       state.students.forEach((student, index) => {
         tbody.innerHTML += `
           <tr>
