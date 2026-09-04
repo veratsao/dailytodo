@@ -2,843 +2,718 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>兒童財商大富翁（動態玩家版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>學生作業進度追蹤管理系統</title>
   <style>
     :root {
-      --bg-color: #0f172a;
-      --board-bg: #1e293b;
-      --accent-color: #fbbf24;
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --primary: #4f46e5;       /* 靛藍色系 - 主視覺 */
+      --primary-hover: #4338ca;
+      --danger: #ef4444;        /* 未繳 - 鮮紅 */
+      --warning: #f59e0b;       /* 訂正 - 琥珀黃 */
+      --success: #10b981;       /* 完成 - 翡翠綠 */
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --radius: 12px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
-      touch-action: manipulation;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
 
-    html, body {
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      background-color: var(--bg-color);
-      color: #ffffff;
+    .no-print { display: block; }
+    .print-only { display: none; }
+
+    /* 頂部導覽列：強制依序排成單一橫行 */
+    header { 
       display: flex;
-      flex-direction: column;
-      padding: 6px;
+      align-items: center; 
+      background: var(--card-bg); 
+      padding: 12px 20px; 
+      border-radius: var(--radius); 
+      box-shadow: var(--shadow-md); 
+      margin-bottom: 20px; 
+      border: 1px solid var(--border-color);
+      overflow-x: auto;          /* 超出寬度時支援水平滾動 */
+      white-space: nowrap;       /* 防止內部元素換行 */
     }
 
-    /* 頂部 Header */
-    header {
-      width: 100%;
-      height: 48px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(30, 41, 59, 0.9);
-      padding: 0 16px;
-      border-radius: 8px;
-      margin-bottom: 6px;
-      flex-shrink: 0;
-    }
-
-    h1 {
-      font-size: 1.2rem;
-      color: var(--accent-color);
-    }
-
-    .header-btns {
-      display: flex;
-      gap: 8px;
-    }
-
-    .edit-names-btn {
-      background: #3b82f6;
-      color: #fff;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .reset-btn-header {
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      padding: 5px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    /* 主體橫式滿版佈局 */
-    .main-layout {
-      width: 100%;
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 0;
-    }
-
-    /* 地圖容器 */
-    .board-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: var(--board-bg);
-      border-radius: 10px;
-      display: grid;
-      grid-template-columns: repeat(10, 1fr);
-      grid-template-rows: repeat(10, 1fr);
-      gap: 3px;
-      padding: 4px;
-      border: 2px solid #334155;
-    }
-
-    /* 格子設計 */
-    .cell {
-      background: #334155;
-      border-radius: 4px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 3px;
-      font-size: 0.8rem;
-      font-weight: bold;
-      position: relative;
-      text-align: center;
-      user-select: none;
-      overflow: hidden;
-    }
-
-    .cell-type-start { background: #dc2626; }
-    .cell-type-quiz  { background: #2563eb; }
-    .cell-type-task  { background: #d97706; }
-    .cell-type-tax   { background: #475569; }
-
-    /* 棋子容器與棋子 */
-    .pieces-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px;
-      justify-content: center;
-      align-content: center;
-      width: 100%;
-      flex: 1;
-      z-index: 2;
-      overflow: hidden;
-    }
-
-    .piece {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      border: 1.5px solid #ffffff;
-      font-size: 11px;
-      color: #ffffff;
+    .nav-header-row {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-    }
-
-    /* 中央控制與卡片區：填滿 Central Area */
-    .center-area {
-      grid-column: 2 / 10;
-      grid-row: 2 / 10;
-      background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
-      border-radius: 10px;
-      border: 2px dashed var(--accent-color);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-    }
-
-    .dice-zone {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      background: rgba(255, 255, 255, 0.08);
-      padding: 6px 20px;
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.15);
-      width: 100%;
-      flex-shrink: 0;
-    }
-
-    .player-tag {
-      font-size: 1.25rem;
-      font-weight: bold;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .dice-group {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .dice-display {
-      width: 42px;
-      height: 42px;
-      background: #ffffff;
-      color: #1e293b;
-      font-size: 24px;
-      font-weight: bold;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    }
-
-    .btn {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-      color: white;
-      border: none;
-      padding: 8px 20px;
-      font-size: 1.05rem;
-      font-weight: bold;
-      border-radius: 16px;
-      cursor: pointer;
-      box-shadow: 0 3px 8px rgba(245, 158, 11, 0.4);
-    }
-
-    .btn-reset-center {
-      background: linear-gradient(135deg, #ef4444, #dc2626);
-      box-shadow: 0 3px 8px rgba(239, 68, 68, 0.4);
-    }
-
-    .btn:disabled {
-      background: #64748b;
-      box-shadow: none;
-      cursor: not-allowed;
-    }
-
-    /* 中央問答卡：滿版大字體 */
-    .quiz-card {
-      width: 100%;
-      flex: 1;
-      margin-top: 8px;
-      background: #1e293b;
-      border: 2px solid #38bdf8;
-      border-radius: 10px;
-      padding: 16px 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      text-align: center;
-      min-height: 0;
-    }
-
-    .quiz-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 1.2rem;
-      color: #38bdf8;
-      font-weight: bold;
-    }
-
-    .quiz-question {
-      font-size: 2rem;
-      color: #ffffff;
-      font-weight: bold;
-      margin: 10px 0;
-      line-height: 1.4;
-      letter-spacing: 0.5px;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .options-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .option-btn {
-      background: #334155;
-      color: #f8fafc;
-      border: 2px solid #38bdf8;
-      padding: 14px 10px;
-      border-radius: 12px;
-      font-size: 1.35rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-
-    .option-btn:hover {
-      background: #0284c7;
-      color: #ffffff;
-    }
-
-    .option-btn:active {
-      background: #0369a1;
-      transform: scale(0.98);
-    }
-
-    .result-msg {
-      font-size: 1.4rem;
-      font-weight: bold;
-      height: 1.8rem;
-      margin-bottom: 4px;
-    }
-
-    /* 彈出修改姓名與人數 Modal */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.8);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .modal-content {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 12px;
-      width: 90%;
-      max-width: 650px;
-      max-height: 85vh;
-      overflow-y: auto;
-      border: 2px solid var(--accent-color);
-    }
-
-    .modal-header-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .add-btn {
-      background: #22c55e;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .name-input-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      margin: 15px 0;
-    }
-
-    .name-input-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: #0f172a;
-      padding: 6px;
-      border-radius: 6px;
-      border: 1px solid #334155;
-    }
-
-    .name-input-item input {
       width: 100%;
-      padding: 4px;
-      text-align: center;
-      font-size: 1rem;
-      border-radius: 4px;
-      border: 1px solid #475569;
-      background: #1e293b;
-      color: #fff;
     }
 
-    .del-btn {
-      background: #ef4444;
-      color: white;
-      border: none;
-      width: 24px;
+    .nav-header-row button { 
+      padding: 9px 16px; 
+      border: 1px solid transparent; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      font-size: 0.9rem; 
+      transition: all 0.2s ease; 
+      background: #f1f5f9; 
+      color: var(--text-muted); 
+      flex-shrink: 0;          /* 保持按鈕原尺寸不被擠壓 */
+    }
+    
+    .nav-header-row button:hover { background: #e2e8f0; color: var(--text-main); }
+    .nav-header-row button.active { background-color: var(--primary); color: white; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3); }
+    
+    .nav-header-row button.btn-primary { background-color: var(--primary); color: white; }
+    .nav-header-row button.btn-primary:hover { background-color: var(--primary-hover); }
+    .nav-header-row button.btn-sync { background-color: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+    .nav-header-row button.btn-sync:hover { background-color: #d1fae5; }
+    .nav-header-row button.btn-reset { background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+    .nav-header-row button.btn-reset:hover { background-color: #fee2e2; }
+    .nav-header-row button.btn-print { background-color: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+    .nav-header-row button.btn-print:hover { background-color: #e0f2fe; }
+
+    .nav-divider {
+      width: 1px;
       height: 24px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-weight: bold;
-      line-height: 1;
+      background-color: var(--border-color);
+      margin: 0 4px;
       flex-shrink: 0;
     }
+
+    /* 頁面切換容器 */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* 每日作業狀態 - 看板卡片 */
+    .task-board { display: flex; overflow-x: auto; gap: 18px; padding-bottom: 20px; align-items: flex-start; }
+    .task-column { 
+      background: var(--card-bg); width: 300px; min-width: 300px; border-radius: var(--radius); 
+      box-shadow: var(--shadow-md); border: 1px solid var(--border-color); padding: 16px; position: relative; 
+    }
+    .task-header { margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; padding-right: 28px; }
+    .task-title-container { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
+    .task-title { font-size: 1.05rem; font-weight: 700; color: var(--text-main); line-height: 1.4; flex-grow: 1; word-break: break-all; }
+    .btn-edit-title { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; border-radius: 4px; }
+    .btn-edit-title:hover { color: var(--primary); background: #e0e7ff; }
+
+    .task-category-tag { 
+      font-size: 0.75rem; background: #e0e7ff; color: #3730a3; padding: 3px 8px; 
+      border-radius: 20px; font-weight: 600; display: inline-block; 
+    }
+    
+    .btn-delete-task { 
+      position: absolute; top: 14px; right: 14px; background: none; border: none; 
+      color: #94a3b8; font-size: 1.2rem; cursor: pointer; border-radius: 4px; transition: 0.2s; 
+    }
+    .btn-delete-task:hover { color: var(--danger); background: #fee2e2; }
+
+    /* 學生方塊 (2 列網格 + 雙色圓角卡片) */
+    .student-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .student-block { 
+      padding: 10px 8px; border-radius: 8px; color: white; font-weight: 600; font-size: 0.88rem; 
+      display: flex; flex-direction: column; align-items: center; justify-content: center; 
+      cursor: pointer; user-select: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+      box-shadow: var(--shadow-sm); text-align: center; 
+    }
+    .student-block:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.12); }
+    .student-block:active { transform: translateY(0); }
+    .student-block .status-sub { font-size: 0.72rem; font-weight: 500; opacity: 0.9; margin-top: 3px; }
+    
+    .status-unsubmitted { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .status-correcting { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .status-done { background: #f1f5f9; color: #94a3b8; box-shadow: none; }
+    .status-done .status-sub { color: #cbd5e1; }
+
+    /* 未完成統計與核銷 */
+    .student-tags-bar { 
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; 
+      background: var(--card-bg); padding: 14px; border-radius: var(--radius); 
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); 
+    }
+    .tag-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border-color); background: white; cursor: pointer; font-size: 0.88rem; color: var(--text-muted); transition: 0.2s; }
+    .tag-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .tag-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
+
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
+    .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    .data-table th { background-color: #f8fafb; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
+    .btn-verify { padding: 5px 12px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-verify:hover { background: #d1fae5; }
+
+    /* 列印設定頁面 */
+    .print-selector { background: var(--card-bg); padding: 20px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
+    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
+    .checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
+
+    /* A4 列印格式設定 (已放大欠繳清單字體) */
+    @media print {
+      body { background: white; padding: 0; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      @page { size: A4 portrait; margin: 8mm; }
+
+      .print-page { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8mm; width: 194mm; height: 275mm; page-break-after: always; }
+      .print-card { border: 2px solid #000; padding: 10mm; box-sizing: border-box; height: 132mm; overflow: hidden; }
+      .print-card h3 { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; font-size: 1.4rem; font-weight: bold; }
+      .print-cat { font-weight: bold; background: #e5e7eb; padding: 4px 8px; font-size: 1.1rem; margin-top: 8px; border-radius: 4px; display: inline-block; }
+      .print-list { list-style: square; padding-left: 24px; font-size: 1.05rem; margin-top: 6px; line-height: 1.5; }
+      .print-list li { margin-bottom: 4px; }
+      .status-tag-print { font-weight: bold; margin-left: 4px; }
+    }
+
+    /* Modal 彈出視窗質感設計 */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 480px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-main); }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; transition: 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .modal-btns button { padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: #f8fafc; }
+    
+    .student-edit-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .student-edit-table td { padding: 8px 4px; border-bottom: 1px solid var(--border-color); }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>兒童財商大富翁</h1>
-    <div class="header-btns">
-      <button class="edit-names-btn" onclick="openNameModal()">⚙️ 設定玩家與人數</button>
-      <button class="reset-btn-header" onclick="confirmResetGame()">🔄 重置遊戲</button>
+  <!-- 頂部控制列（排成一整行） -->
+  <header class="no-print">
+    <div class="nav-header-row">
+      <button class="active" onclick="switchTab('daily', this)">每日作業狀態</button>
+      <button onclick="switchTab('cumulative', this)">未完成統計與核銷</button>
+      <button onclick="switchTab('print', this)">列印欠繳清單</button>
+      
+      <div class="nav-divider"></div>
+      
+      <button onclick="openCategoryModal()">分類項目設定</button>
+      <button onclick="openStudentModal()">管理學生名單</button>
+      <button class="btn-primary" onclick="openTaskModal()">+ 新增作業欄位</button>
+      <button class="btn-sync" onclick="syncCloud()">雲端同步 (GAS)</button>
+      <button class="btn-reset" onclick="resetAllData()">一鍵重置資料</button>
     </div>
   </header>
 
-  <div class="main-layout">
-    <div class="board-container" id="board">
-      
-      <div class="center-area">
-        
-        <!-- 擲骰控制區 -->
-        <div class="dice-zone">
-          <div class="player-tag">
-            輪到玩家：<span id="current-player-name" style="color:var(--accent-color); font-size:1.5rem;">-</span>
-          </div>
-          <div class="dice-group">
-            <div class="dice-display" id="dice1-val">?</div>
-            <div class="dice-display" id="dice2-val">?</div>
-          </div>
-          <button class="btn" id="roll-btn" onclick="playTurn()">擲骰子</button>
-          <button class="btn btn-reset-center" onclick="confirmResetGame()">重置</button>
-        </div>
+  <!-- 1. 每日作業狀態 -->
+  <main id="daily-view" class="tab-content active no-print">
+    <div class="task-board" id="task-board"></div>
+  </main>
 
-        <!-- 問答卡區塊 -->
-        <div class="quiz-card" id="quiz-card">
-          <div class="quiz-header">
-            <span>💡 財商考驗區</span>
-            <span id="quiz-type-tag" style="color:#fbbf24;"></span>
-          </div>
-          <div class="quiz-question" id="quiz-q">請點擊「擲骰子」開始遊戲！</div>
-          <div class="result-msg" id="result-msg"></div>
-          <div class="options-grid" id="options-container">
-            <!-- 動態渲染選項 -->
-          </div>
-        </div>
+  <!-- 2. 未完成統計與核銷 -->
+  <main id="cumulative-view" class="tab-content no-print">
+    <div class="student-tags-bar" id="student-tags"></div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>學生姓名</th>
+          <th>科目分類</th>
+          <th>作業名稱</th>
+          <th>目前狀態</th>
+          <th>核銷操作</th>
+        </tr>
+      </thead>
+      <tbody id="cumulative-list"></tbody>
+    </table>
+  </main>
 
+  <!-- 3. 列印設定頁面 -->
+  <main id="print-view" class="tab-content no-print">
+    <div class="print-selector">
+      <h3>選擇欲列印欠繳清單的學生：</h3>
+      <div style="margin-top: 10px;">
+        <button onclick="selectAllPrint(true)" style="padding:4px 10px; border-radius:6px; cursor:pointer;">全選</button>
+        <button onclick="selectAllPrint(false)" style="padding:4px 10px; border-radius:6px; cursor:pointer;">取消全選</button>
+        <button class="btn-print" style="margin-left: 15px; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600;" onclick="triggerPrint()">開啟 A4 預覽與列印</button>
       </div>
+      <div class="checkbox-grid" id="print-checkboxes"></div>
+    </div>
+  </main>
 
+  <!-- A4 列印區 -->
+  <div class="print-only">
+    <div class="print-page" id="print-container"></div>
+  </div>
+
+  <!-- 新增任務 Modal -->
+  <div class="modal" id="task-modal">
+    <div class="modal-content">
+      <h3>新增作業任務</h3>
+      <div class="form-group" style="margin-top:12px;">
+        <label>選擇預設科目分類：</label>
+        <select id="task-category-select"></select>
+      </div>
+      <div class="form-group">
+        <label>輸入作業名稱：</label>
+        <input type="text" id="task-name-input" placeholder="例如：習作 P.10-12">
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-muted);">※ 新增後預設所有學生為「未完成(未繳)」狀態。</p>
+      <div class="modal-btns">
+        <button onclick="closeTaskModal()">取消</button>
+        <button style="background:var(--primary); color:white; border:none;" onclick="saveNewTask()">確認新增</button>
+      </div>
     </div>
   </div>
 
-  <!-- 編輯名字與人數 Modal -->
-  <div class="modal-overlay" id="name-modal">
+  <!-- 科目分類管理 Modal -->
+  <div class="modal" id="category-modal">
     <div class="modal-content">
-      <div class="modal-header-actions">
-        <h2>玩家管理與名單 (最多20字)</h2>
-        <button class="add-btn" onclick="addPlayer()">+ 新增玩家</button>
+      <h3>科目分類項目設定</h3>
+      <div class="form-group" style="margin-top:10px;">
+        <label>新增科目分類：</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="new-category-input" placeholder="例如：本土語、藝術">
+          <button style="padding:6px 12px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer;" onclick="addCategory()">新增</button>
+        </div>
       </div>
-      <div class="name-input-grid" id="name-input-container"></div>
-      <button class="btn" style="width:100%; margin-top:10px;" onclick="saveNames()">儲存並更新</button>
+      <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
+      <h4>現有分類項目：</h4>
+      <div id="category-list" style="margin-top:10px;"></div>
+      <div class="modal-btns">
+        <button onclick="closeCategoryModal()">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 學生管理 Modal -->
+  <div class="modal" id="student-modal">
+    <div class="modal-content">
+      <h3>學生名單管理</h3>
+      <div class="form-group" style="margin-top:10px;">
+        <label>批量新增學生（每行一位）：</label>
+        <textarea id="batch-student-input" style="height:65px;" placeholder="張小明&#10;李小華"></textarea>
+        <button style="margin-top:6px; padding:6px 12px; background:#f1f5f9; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;" onclick="saveBatchStudents()">批量加入名單</button>
+      </div>
+      <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
+      <h4>現有名單 (已按筆畫排序)：</h4>
+      <table class="student-edit-table">
+        <tbody id="student-edit-list"></tbody>
+      </table>
+      <div class="modal-btns">
+        <button onclick="closeStudentModal()">關閉</button>
+      </div>
     </div>
   </div>
 
   <script>
-    const colorPalette = [
-      "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981",
-      "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#d946ef",
-      "#ec4899", "#f43f5e", "#0284c7", "#059669", "#d97706",
-      "#7c3aed", "#c026d3", "#e11d48", "#0d9488", "#4f46e5"
-    ];
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
 
-    // 初始化 18 位指定的玩家名單
-    const initialNames = ["白", "靜", "熙", "宣", "維", "昶", "卉", "翁", "凡", "曄", "朱", "于", "長", "刁", "欒", "綾", "綺", "翰"];
-
-    let players = initialNames.map((name, i) => ({
-      id: i + 1,
-      name: name,
-      color: colorPalette[i % colorPalette.length],
-      position: 0
-    }));
-
-    let currentPlayerIndex = 0;
-
-    const boardCells = [
-      { name: "起點", type: "start" }, { name: "儲蓄關", type: "quiz" },
-      { name: "買玩具", type: "task" }, { name: "零用錢", type: "quiz" },
-      { name: "繳水費", type: "tax" }, { name: "存豬公", type: "quiz" },
-      { name: "超級市場", type: "task" }, { name: "買圖書", type: "quiz" },
-      { name: "銀行", type: "task" }, { name: "休息站", type: "tax" },
-      { name: "理財關", type: "quiz" }, { name: "逛夜市", type: "task" },
-      { name: "做家事", type: "quiz" }, { name: "發票中獎", type: "task" },
-      { name: "買文具", type: "quiz" }, { name: "看電影", type: "task" },
-      { name: "利息關", type: "quiz" }, { name: "繳電費", type: "tax" },
-      { name: "公園", type: "tax" }, { name: "投資關", type: "quiz" },
-      { name: "買冰淇淋", type: "task" }, { name: "壓歲錢", type: "quiz" },
-      { name: "買禮物", type: "task" }, { name: "捐款關", type: "quiz" },
-      { name: "二手市集", type: "task" }, { name: "理財通", type: "quiz" },
-      { name: "遊樂園", type: "task" }, { name: "聰明消費", type: "quiz" },
-      { name: "公車卡", type: "tax" }, { name: "分享關", type: "quiz" },
-      { name: "買水彩", type: "task" }, { name: "記帳關", type: "quiz" },
-      { name: "獎學金", type: "task" }, { name: "儲蓄王", type: "quiz" },
-      { name: "買烘焙", type: "task" }, { name: "預算關", type: "quiz" }
-    ];
-
-    const masterQuestionBank = [
-      /* 篇章一：選擇題 50 題 */
-      { type: "select", q: "小明肚子餓了想買一個麵包吃，請問這個「麵包」屬於什麼？", options: ["(A) 需要", "(B) 想要", "(C) 浪費", "(D) 投資"], ans: 0 },
-      { type: "select", q: "小華已經有一雙好穿的運動鞋，但看見同學買了酷炫的新鞋也想買一雙，請問這是什麼？", options: ["(A) 需要", "(B) 想要", "(C) 必須品", "(D) 義務"], ans: 1 },
-      { type: "select", q: "下列哪一項物品通常是生活中的「需要」？", options: ["(A) 最新款的遊戲機", "(B) 乾淨的飲用水", "(C) 限量版公仔", "(D) 吃到飽餐廳的餐券"], ans: 1 },
-      { type: "select", q: "當我們手中的錢有限，但同時有「需要」和「想要」的東西時，應該先買哪一個？", options: ["(A) 想要的", "(B) 需要的", "(C) 最貴的", "(D) 包裝最漂亮的"], ans: 1 },
-      { type: "select", q: "下列哪一種購物心態最容易造成浪費？", options: ["(A) 寫好購物清單才去買", "(B) 因為特價就把不需要的東西買回家", "(C) 先比較價格再買", "(D) 先回家考慮三天"], ans: 1 },
-      { type: "select", q: "「沒買會影響基本生活」的東西，通常稱為：", options: ["(A) 想要", "(B) 需要", "(C) 奢華品", "(D) 收藏品"], ans: 1 },
-      { type: "select", q: "「買了會很開心，但沒有也不會影響生活」的東西，稱為：", options: ["(A) 需要", "(B) 想要", "(C) 必須品", "(D) 必需品"], ans: 1 },
-      { type: "select", q: "逛夜市時看到可愛的小皮球，雖然家裡已經有三個了，還是想買，這是什麼行為？", options: ["(A) 聰明消費", "(B) 滿足「需要」", "(C) 滿足「想要」", "(D) 正確投資"], ans: 2 },
-      { type: "select", q: "如果我們把大部分的錢都拿去買「想要」的東西，最後可能會發生什麼事？", options: ["(A) 變成有錢人", "(B) 需要買重要物品時會沒有錢", "(C) 得到更多獎品", "(D) 銀行會送我們禮物"], ans: 1 },
-      { type: "select", q: "分清「需要」和「想要」的最大好處是什麼？", options: ["(A) 可以不用花錢", "(B) 可以幫我們控制預算、聰明花錢", "(C) 買東西可以打折", "(D) 讓同學很羨慕"], ans: 1 },
-      
-      { type: "select", q: "通常建議把零用錢分成三份，最常見的分法是哪三份？", options: ["(A) 吃、喝、玩", "(B) 儲蓄、花費、捐贈/分享", "(C) 買玩具、買零食、買電動", "(D) 借人、丟掉、花光"], ans: 1 },
-      { type: "select", q: "拿到零用錢時，最聰明的做法是：", options: ["(A) 先花光，剩下的再存起來", "(B) 先存一部分，剩下的再合理消費", "(C) 全部拿去買糖果", "(D) 藏在課本裡忘記它"], ans: 1 },
-      { type: "select", q: "「先儲蓄，再消費」的意思是什麼？", options: ["(A) 賺到錢或拿到零用錢時，先扣掉要存的錢，剩下的才是能花的花費", "(B) 花完錢之後，如果有剩才存", "(C) 不吃不喝把錢全部存起來", "(D) 向別人借錢來存"], ans: 0 },
-      { type: "select", q: "如果你想買一台 600 元的腳踏車，每週可以存 50 元，請問需要存幾個星期？", options: ["(A) 6 週", "(B) 10 週", "(C) 12 週", "(D) 20 週"], ans: 2 },
-      { type: "select", q: "把錢存進銀行或郵局，除了比較安全之外，還有什麼好處？", options: ["(A) 會送免費玩具", "(B) 可以賺取微薄的「利息」", "(C) 錢會自動變多十倍", "(D) 可以不用寫作業"], ans: 1 },
-      { type: "select", q: "下列哪一個是養成儲蓄習慣的好幫手？", options: ["(A) 記帳本", "(B) 垃圾桶", "(C) 購物台", "(D) 廣告傳單"], ans: 0 },
-      { type: "select", q: "定期記帳的主要目的是什麼？", options: ["(A) 練習寫字", "(B) 知道自己的錢花到哪裡去，並檢討改進", "(C) 給爸媽檢查拿獎金", "(D) 計算數學題目"], ans: 1 },
-      { type: "select", q: "準備「緊急預備金」（緊急存錢）的作用是什麼？", options: ["(A) 隨時拿去買限量玩具", "(B) 應付突發狀況，例如生病或物品壞掉", "(C) 請全班同學吃冰淇淋", "(D) 借給不認識的陌生人"], ans: 1 },
-      { type: "select", q: "小強每週有 100 元零用錢，他決定存 30 元、捐 10 元、花 60 元，請問他一個月（4週）可以存多少錢？", options: ["(A) 40 元", "(B) 120 元", "(C) 240 元", "(D) 400 元"], ans: 1 },
-      { type: "select", q: "存錢的主要目的不包括下列哪一項？", options: ["(A) 達成未來的目標", "(B) 應付緊急狀況", "(C) 養成自律的好習慣", "(D) 拿來跟同學炫耀"], ans: 3 },
-
-      { type: "select", q: "買東西前，先列出「購物清單」有什麼好處？", options: ["(A) 買得比較快且不易買到不需要的東西", "(B) 店員會給打折", "(C) 可以買更多玩具", "(D) 可以不用付錢"], ans: 0 },
-      { type: "select", q: "兩家超商賣同一款文具，A店賣 30 元，B店買一送一賣 50 元，如果小明只需要「一個」，請問去哪裡買比較省錢？", options: ["(A) A店", "(B) B店", "(C) 兩家一樣省", "(D) 都不要買"], ans: 0 },
-      { type: "select", q: "「貨比三家不吃虧」這句話的意思是什麼？", options: ["(A) 買東西要一次買三家", "(B) 購買前多比較不同店家的價格與品質", "(C) 一定要選最貴的買", "(D) 只在同一家店買東西"], ans: 1 },
-      { type: "select", q: "當看到「買二送一」的促銷活動時，最聰明的思考方式是什麼？", options: ["(A) 只要有送東西就一定要買", "(B) 思考自己真的需要那麼多數量嗎", "(C) 把店裡的商品全買光", "(D) 請朋友幫忙買"], ans: 1 },
-      { type: "select", q: "決定是否購買一件物品時，除了考慮價格，還應該考慮什麼？", options: ["(A) 物品的品質與實用性", "(B) 包裝袋酷不酷", "(C) 廣告明星是誰", "(D) 贈品送什麼"], ans: 0 },
-      { type: "select", q: "在網路購物時，下列哪種行為是安全的？", options: ["(A) 隨便輸入爸媽的信用卡號碼", "(B) 經由父母同意並陪同操作安全的購物網站", "(C) 相信陌生人傳來的超便宜連結", "(D) 把自己的個人資料公開在留言區"], ans: 1 },
-      { type: "select", q: "什麼叫做「隱形開銷」（隱藏成本）？", options: ["(A) 看不見的錢", "(B) 買了機器後，後續還需要定期購買的耗材或維修費", "(C) 被偷走的前", "(D) 放在口袋裡的零錢"], ans: 1 },
-      { type: "select", q: "小紅想買一本故事書，去書店買要 200 元，二手書網站只要 80 元且保存良好，請問買二手書屬於哪種行為？", options: ["(A) 小氣過頭", "(B) 聰明且環保的消費", "(C) 違法行為", "(D) 浪費錢"], ans: 1 },
-      { type: "select", q: "去逛超市時，把商品「單位價格」（例如每公克多少錢）拿來比較，這叫做什麼？", options: ["(A) 偷懶", "(B) 精明比價", "(C) 浪費時間", "(D) 不道德"], ans: 1 },
-      { type: "select", q: "電視廣告經常會把產品拍得非常吸引人，我們應該抱持什麼態度？", options: ["(A) 廣告說什麼就全盤相信", "(B) 保持理性思考，不被誇大宣傳影響", "(C) 馬上叫爸媽買給我", "(D) 生氣地把電視關掉"], ans: 1 },
-
-      { type: "select", q: "父母工作賺來的錢，主要來源是什麼？", options: ["(A) 只要去 ATM 提款機按一按就會自動出來", "(B) 付出時間、專業技能與辛苦勞動換來的", "(C) 政府每天免費發放的", "(D) 地上撿來的"], ans: 1 },
-      { type: "select", q: "「天下沒有白吃的午餐」這句話在財商觀念中代表什麼意思？", options: ["(A) 午餐一定要花錢買", "(B) 想獲得報酬或想要的東西，必須付出努力或代價", "(C) 去餐廳吃飯不能刷卡", "(D) 學校不提供午餐"], ans: 1 },
-      { type: "select", q: "下列哪一種方式不是獲取正當收入的方式？", options: ["(A) 長大後當醫生或工程師上班", "(B) 開店賣美味的麵包", "(C) 拿同學的東西去賣錢", "(D) 提供清潔服務賺取報酬"], ans: 2 },
-      { type: "select", q: "什麼是「延遲享樂」？", options: ["(A) 永遠不享受生活", "(B) 為了實現未來更大的目標，願意克制現在一時的慾望", "(C) 買東西一定要拖到最後一秒才付錢", "(D) 遲到買東西"], ans: 1 },
-      { type: "select", q: "看到同學擁有最新的遊戲機，自己沒有時，正確的心態應該是什麼？", options: ["(A) 哭鬧逼父母買給我", "(B) 偷偷拿別人的來玩", "(C) 珍惜自己現有的東西，若真的很想要就擬定存錢計畫", "(D) 討厭那個同學"], ans: 2 },
-      { type: "select", q: "金錢可以買到很多東西，但下列哪一項是無法用金錢買到的？", options: ["(A) 新玩具", "(B) 美味餐點", "(C) 真誠的友誼與親情", "(D) 文具用品"], ans: 2 },
-      { type: "select", q: "「機會成本」的意思是指選擇了一樣東西後，必須放棄什麼？", options: ["(A) 另一個選擇的價值", "(B) 所有的錢", "(C) 朋友", "(D) 時間"], ans: 0 },
-      { type: "select", q: "如果你只有 50 元，買了冰淇淋就不能買漫畫書，請問「被放棄掉的漫畫書」是什麼？", options: ["(A) 投資", "(B) 機會成本", "(C) 利息", "(D) 負債"], ans: 1 },
-      { type: "select", q: "下列哪一種習慣最能展現負責任的財商態度？", options: ["(A) 珍惜並愛護自己的物品，減少損壞與遺失", "(B) 壞了就叫父母買新的", "(C) 隨意把錢放在桌上", "(D) 常常請同學吃東西展現大方"], ans: 0 },
-      { type: "select", q: "將自己不需要但狀況良好的玩具捐給公益機構，這屬於理財分配中的哪一部分？", options: ["(A) 儲蓄", "(B) 消費", "(C) 分享與回饋社會", "(D) 投資"], ans: 2 },
-
-      { type: "select", q: "「信用」在金錢交易中代表什麼意思？", options: ["(A) 戶頭裡有多少錢", "(B) 個人說話算話、按時還錢的承諾與名譽", "(C) 認識多少富翁", "(D) 長得漂不漂亮"], ans: 1 },
-      { type: "select", q: "小明向同學借了 20 元買公車票，並承諾明天還，請問他明天應該怎麼做？", options: ["(A) 假裝忘記", "(B) 按時歸還 20 元", "(C) 拖延一個月再還", "(D) 只還 10 元"], ans: 1 },
-      { type: "select", q: "借錢給別人或向別人借錢時，如果經常拖延不還，會造成什麼後果？", options: ["(A) 別人會更喜歡你", "(B) 建立良好的信用", "(C) 失去別人的信任，破壞人際關係", "(D) 可以賺更多錢"], ans: 2 },
-      { type: "select", q: "當陌生人對你說：「幫我保管這個包包，我給你 1000 元」，你應該怎麼做？", options: ["(A) 開心地立刻答應", "(B) 拒絕並保持警覺，告訴家長或老師", "(C) 拿了錢跑去買玩具", "(D) 幫他拿去警察局換錢"], ans: 1 },
-      { type: "select", q: "什麼是「詐騙」？", options: ["(A) 警察抓壞人", "(B) 用不合法的謊言騙取別人的金錢或財物", "(C) 商店打打折活動", "(D) 銀行存款利息"], ans: 1 },
-      { type: "select", q: "在遊戲中，有玩家說：「只要你把帳號密碼給我，我就送你無限遊戲幣！」請問這是什麼情況？", options: ["(A) 遇到好心人", "(B) 很可能是網路詐騙陷阱", "(C) 遊戲公司的官方活動", "(D) 幸運抽獎"], ans: 1 },
-      { type: "select", q: "使用信用卡刷卡消費時，代表什麼含意？", options: ["(A) 這些東西是免費送的", "(B) 先由銀行幫忙付錢，之後自己一定要付錢給銀行", "(C) 錢會從天而降", "(D) 可以永遠不用還錢"], ans: 1 },
-      { type: "select", q: "下列哪一種行為會傷害個人的「信用」？", options: ["(A) 借書按時歸還", "(B) 答應別人的事沒有做到，借錢不還", "(C) 每天認真記帳", "(D) 幫忙做家事"], ans: 1 },
-      { type: "select", q: "遇到有人要求你提供家裡的銀行帳號或個人資料時，最正確的做法是：", options: ["(A) 直接告訴對方", "(B) 立刻拒絕並詢問父母或撥打 165 反詐騙專線", "(C) 寫在紙上給他", "(D) 換取小禮物"], ans: 1 },
-
-      /* 篇章二：是非題 50 題 */
-      { type: "tf", q: "只要是我很想要的東西，就代表是生活中的「需要」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "水、食物、衣服和安全的住所，都是人類維持生存的「需要」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "買東西前先寫購物清單，可以幫助我們避免衝動購物。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "只要商品在打折特價，就算用不到買回家也是賺到。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "「需要」的東西沒買可能會影響生活；「想要」的東西沒買生活依然能正常過。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "文具店裡最貴的彩色筆，品質一定就是最好的，買最貴的準沒錯。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "拿到零用錢時，應該「先儲蓄，再消費」，養成存錢好習慣。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "零用錢是我的，我想怎麼花就怎麼花，完全不用規劃。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "記帳太麻煩了，對控管金錢一點幫助也沒有。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "把錢存進銀行，不僅比放在家裡安全，還能產生利息。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-
-      { type: "tf", q: "想要買昂貴的物品時，可以透過設定「儲蓄目標」並按部就班存錢來達成。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "自動提款機（ATM）裡的錢是無限的，隨時去按按鈕就有錢出來。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "爸爸媽媽賺錢很辛苦，是用時間與勞力換來的，我們應該珍惜使用。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "只要我喜歡，可以隨便拿同學的東西去轉賣賺錢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "錢可以買到美味的食物，但買不到身體的健康。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "「貨比三家」是指買東西時要比較不同店家的價格、品質和服務。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "買東西時，只要包裝看起來很酷、很漂亮，就表示裡面的東西很好。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "便利商店的「買一送一」活動，如果自己根本不需要或吃不完，就不應該貪便宜購買。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "為了買自己喜歡的玩具而忍住不吃零食，這種行為叫做「延遲享樂」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "「機會成本」告訴我們，當我們選擇了 A，就必須放棄 B 的價值。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-
-      { type: "tf", q: "向別人借東西或借錢，只要對方沒提醒，就可以不用還。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "建立良好的「信用」，可以讓別人在未來更願意信任我們、幫助我們。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "信用卡刷卡很方便，等於裡面的錢都是銀行免費送給我們的。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "網路上的陌生人說要免費送我高級遊戲裝備，只要我提供帳號密碼，我可以放心給他。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "遇到詐騙或不確定是否安全的金錢交易時，可以撥打 165 反詐騙專線諮詢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "把用不到但狀況良好的玩具捐給需要的小朋友，是一種善用資源、分享愛心的表現。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "只要有錢，就可以解決世界上所有的問題。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "買東西前問自己：「這是需要的？還是想要的？」能減少買錯東西的機率。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "二手物品（例如舊書或舊玩具）因為別人用過，所以完全沒有價值。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "把所有的零用錢全部花光光，叫做「理財高手」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-
-      { type: "tf", q: "「預算」是指在花錢之前，先設定好自己最多只能花多少錢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "買了玩具車之後，還要不斷花錢買電池，這些電池的費用屬於這輛車的「隱形開銷」（隱藏成本）。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "電視上的廣告都是真的，完全不會誇大或吸引人多花錢。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "看到同學有最新款的手機，我也一定要吵著讓爸媽買給我，這樣才不會輸給別人。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "保護好自己的私人資料（如身份證號碼、銀行帳號、密碼）也是安全財商的一部分。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "小明把錢分裝在「儲蓄」、「消費」、「分享」三個盒子裡，這是一種良好的財務分配習慣。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "就算沒有緊急預備金，人生遇到突發狀況時也絕對不會有影響。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "只要能賺到錢，使用偷竊或欺騙的方式也沒有關係。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "愛護自己的書包與文具，延長使用壽命，也是幫爸爸媽媽省錢（理財）的一種方式。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "「利息」是把錢存進銀行後，銀行支付給存款人的一種報酬。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-
-      { type: "tf", q: "當我們向銀行貸款買房子時，未來只需要還本金，不需要支付利息。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "在實體商店買東西時，找零的錢不需要當場點清，直接放口袋就好。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "買東西時索取統一發票，除了可以對獎之外，還能幫助國家收取稅收。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "世界上所有物品的價格都是固定不變的，永遠不會調漲。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "如果把錢全部放在家裡的枕頭底下，錢會自己慢慢變多。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "只要是免費送的小禮物，不管有沒有用到，拿得越多越好。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "理財不只是學習如何「花錢」與「存錢」，還包括如何「分享」與「管理風險」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "因為好朋友向我借錢，所以就算我自己沒錢了，也要去向別人借錢來借給他。", options: ["⭕ 正確", "❌ 錯誤"], ans: 1 },
-      { type: "tf", q: "聰明消費的目標是「用最合理的價格，買到符合需求且品質良好的商品」。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 },
-      { type: "tf", q: "從小養成良好的財商觀念，長大後更容易做聰明的財務決策。", options: ["⭕ 正確", "❌ 錯誤"], ans: 0 }
-    ];
-
-    let activeQuestionPool = [];
-
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+    const defaultState = {
+      categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
+      students: ["張小明", "李小華", "王大同", "陳美麗", "林阿強"],
+      tasks: [
+        { id: 1, category: "國語", name: "國語習作 L3" },
+        { id: 2, category: "數學", name: "數學習作 P.15" }
+      ],
+      records: {
+        "張小明_1": "unsubmitted",
+        "張小明_2": "correcting",
+        "李小華_1": "unsubmitted"
       }
-      return array;
-    }
+    };
 
-    function refreshQuestionPool() {
-      activeQuestionPool = shuffle([...masterQuestionBank]);
-    }
-
-    function getGridPosition(index) {
-      if (index >= 0 && index <= 9) return { row: 10, col: 10 - index };
-      if (index >= 10 && index <= 18) return { row: 10 - (index - 9), col: 1 };
-      if (index >= 19 && index <= 27) return { row: 1, col: 1 + (index - 18) };
-      return { row: 1 + (index - 27), col: 10 };
-    }
+    let state = JSON.parse(JSON.stringify(defaultState));
+    let selectedStudentFilter = 'ALL';
 
     function init() {
-      refreshQuestionPool();
-      const board = document.getElementById("board");
-
-      boardCells.forEach((cellData, i) => {
-        const cell = document.createElement("div");
-        cell.className = `cell cell-type-${cellData.type}`;
-        
-        const pos = getGridPosition(i);
-        cell.style.gridRow = pos.row;
-        cell.style.gridColumn = pos.col;
-
-        const title = document.createElement("div");
-        title.innerText = cellData.name;
-
-        const piecesContainer = document.createElement("div");
-        piecesContainer.className = "pieces-container";
-        piecesContainer.id = `pieces-${i}`;
-
-        cell.appendChild(title);
-        cell.appendChild(piecesContainer);
-        board.appendChild(cell);
-      });
-
-      updatePieces();
-      updatePlayerDisplay();
-    }
-
-    function updatePieces() {
-      boardCells.forEach((_, i) => {
-        document.getElementById(`pieces-${i}`).innerHTML = "";
-      });
-
-      players.forEach(p => {
-        const pElem = document.createElement("div");
-        pElem.className = "piece";
-        pElem.style.backgroundColor = p.color;
-        pElem.innerText = p.name;
-        document.getElementById(`pieces-${p.position}`).appendChild(pElem);
-      });
-    }
-
-    function updatePlayerDisplay() {
-      if (players.length === 0) return;
-      if (currentPlayerIndex >= players.length) currentPlayerIndex = 0;
-      const p = players[currentPlayerIndex];
-      const nameElem = document.getElementById("current-player-name");
-      nameElem.innerText = p.name;
-      nameElem.style.color = p.color;
-    }
-
-    function playTurn() {
-      if (players.length === 0) {
-        alert("請先新增至少一位玩家！");
-        return;
-      }
-
-      const p = players[currentPlayerIndex];
-      const btn = document.getElementById("roll-btn");
-      btn.disabled = true;
-
-      document.getElementById("result-msg").innerText = "";
-      document.getElementById("options-container").innerHTML = "";
-
-      let count = 0;
-      const interval = setInterval(() => {
-        const tempVal1 = Math.floor(Math.random() * 6) + 1;
-        const tempVal2 = Math.floor(Math.random() * 6) + 1;
-        document.getElementById("dice1-val").innerText = tempVal1;
-        document.getElementById("dice2-val").innerText = tempVal2;
-        count++;
-        if (count > 8) {
-          clearInterval(interval);
-          const diceVal1 = Math.floor(Math.random() * 6) + 1;
-          const diceVal2 = Math.floor(Math.random() * 6) + 1;
-          document.getElementById("dice1-val").innerText = diceVal1;
-          document.getElementById("dice2-val").innerText = diceVal2;
-
-          const totalStep = diceVal1 + diceVal2;
-          p.position = (p.position + totalStep) % 36;
-          updatePieces();
-          showQuestion(p);
+      const saved = localStorage.getItem("tracker_data_v4");
+      if (saved) {
+        try {
+          state = JSON.parse(saved);
+        } catch (e) {
+          state = JSON.parse(JSON.stringify(defaultState));
         }
-      }, 50);
-    }
-
-    function showQuestion(player) {
-      if (activeQuestionPool.length === 0) {
-        refreshQuestionPool();
       }
-
-      const qData = activeQuestionPool.pop();
-      const typeTag = document.getElementById("quiz-type-tag");
-      typeTag.innerText = qData.type === "select" ? "【選擇題】" : "【是非題】";
-
-      document.getElementById("quiz-q").innerText = qData.q;
-      const optsContainer = document.getElementById("options-container");
-      optsContainer.innerHTML = "";
-
-      qData.options.forEach((optText, index) => {
-        const optBtn = document.createElement("button");
-        optBtn.className = "option-btn";
-        optBtn.innerText = optText;
-        optBtn.onclick = () => handleAnswer(player, index === qData.ans);
-        optsContainer.appendChild(optBtn);
-      });
+      sortStudentsByStroke();
+      renderDailyBoard();
+      renderStudentTags();
+      renderCumulative();
+      renderPrintCheckboxes();
     }
 
-    function handleAnswer(player, isCorrect) {
-      const msgElem = document.getElementById("result-msg");
-      const optsContainer = document.getElementById("options-container");
+    function saveData() {
+      sortStudentsByStroke();
+      localStorage.setItem("tracker_data_v4", JSON.stringify(state));
+      if (!GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) {
+        fetch(GAS_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(state) });
+      }
+    }
+
+    function sortStudentsByStroke() {
+      state.students.sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+    }
+
+    /* 新增功能 2：一鍵重置資料 */
+    function resetAllData() {
+      const confirmFirst = confirm("警告：您確定要重置系統資料嗎？\n這將會清除現有的所有任務與學生紀錄，以利新班級使用。");
+      if (confirmFirst) {
+        const confirmSecond = confirm("請再次確認：此動作無法復原！是否繼續重置？");
+        if (confirmSecond) {
+          state = JSON.parse(JSON.stringify(defaultState));
+          saveData();
+          init();
+          alert("系統資料已成功重置！");
+        }
+      }
+    }
+
+    function switchTab(tab, btnElem) {
+      document.querySelectorAll('.nav-header-row button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       
-      optsContainer.innerHTML = "";
-
-      if (isCorrect) {
-        msgElem.style.color = "#4ade80";
-        msgElem.innerText = `⭕ ${player.name} 答對了！加碼前進 1 格！`;
-        player.position = (player.position + 1) % 36;
-      } else {
-        msgElem.style.color = "#f87171";
-        msgElem.innerText = `❌ ${player.name} 答錯囉！後退 1 格！`;
-        player.position = (player.position - 1 + 36) % 36;
-      }
-
-      updatePieces();
-
-      setTimeout(() => {
-        currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
-        updatePlayerDisplay();
-
-        document.getElementById("quiz-type-tag").innerText = "";
-        document.getElementById("quiz-q").innerText = "請點擊「擲骰子」開始！";
-        msgElem.innerText = "";
-        document.getElementById("roll-btn").disabled = false;
-      }, 1500);
-    }
-
-    function confirmResetGame() {
-      if (confirm("確定要重置遊戲嗎？所有玩家將回到起點。")) {
-        players.forEach(p => p.position = 0);
-        currentPlayerIndex = 0;
-        refreshQuestionPool();
-
-        document.getElementById("dice1-val").innerText = "?";
-        document.getElementById("dice2-val").innerText = "?";
-        document.getElementById("quiz-type-tag").innerText = "";
-        document.getElementById("quiz-q").innerText = "遊戲已重置，請點擊「擲骰子」開始！";
-        document.getElementById("result-msg").innerText = "";
-        document.getElementById("options-container").innerHTML = "";
-        document.getElementById("roll-btn").disabled = false;
-
-        updatePieces();
-        updatePlayerDisplay();
+      if(btnElem) btnElem.classList.add('active');
+      
+      if (tab === 'daily') {
+        document.getElementById('daily-view').classList.add('active');
+        renderDailyBoard();
+      } else if (tab === 'cumulative') {
+        document.getElementById('cumulative-view').classList.add('active');
+        renderStudentTags();
+        renderCumulative();
+      } else if (tab === 'print') {
+        document.getElementById('print-view').classList.add('active');
+        renderPrintCheckboxes();
       }
     }
 
-    /* Modal 功能：管理玩家與動態增刪 */
-    let tempPlayers = [];
+    // 1. 每日看板渲染
+    function renderDailyBoard() {
+      const board = document.getElementById('task-board');
+      board.innerHTML = '';
 
-    function openNameModal() {
-      tempPlayers = JSON.parse(JSON.stringify(players));
-      renderModalInputs();
-      document.getElementById("name-modal").style.display = "flex";
-    }
+      state.tasks.forEach(task => {
+        let colHtml = `
+          <div class="task-column">
+            <button class="btn-delete-task" title="刪除此任務" onclick="deleteTask(${task.id})">&times;</button>
+            <div class="task-header">
+              <span class="task-category-tag">${task.category}</span>
+              <div class="task-title-container">
+                <div class="task-title" id="task-title-${task.id}">${task.name}</div>
+                <button class="btn-edit-title" title="修改作業名稱" onclick="editTaskName(${task.id})">✏️</button>
+              </div>
+            </div>
+            <div class="student-grid-2col">`;
 
-    function renderModalInputs() {
-      const container = document.getElementById("name-input-container");
-      container.innerHTML = "";
-      tempPlayers.forEach((p, idx) => {
-        const item = document.createElement("div");
-        item.className = "name-input-item";
-        item.innerHTML = `
-          <span style="color:${p.color}; font-weight:bold; font-size:0.9rem;">${idx + 1}.</span>
-          <input type="text" id="temp-p-${idx}" value="${p.name}" maxlength="2">
-          <button class="del-btn" onclick="removePlayer(${idx})">×</button>
-        `;
-        container.appendChild(item);
+        state.students.forEach(student => {
+          const key = `${student}_${task.id}`;
+          const status = state.records[key] || 'unsubmitted';
+          
+          let statusClass = 'status-unsubmitted';
+          let statusText = '未繳';
+          if (status === 'correcting') { statusClass = 'status-correcting'; statusText = '訂正'; }
+          else if (status === 'done') { statusClass = 'status-done'; statusText = '完成'; }
+
+          colHtml += `
+            <div class="student-block ${statusClass}" onclick="cycleStatus('${student}', ${task.id})">
+              <span>${student}</span>
+              <span class="status-sub">${statusText}</span>
+            </div>`;
+        });
+
+        colHtml += `</div></div>`;
+        board.innerHTML += colHtml;
       });
     }
 
-    function addPlayer() {
-      if (tempPlayers.length >= 20) {
-        alert("最多支援 20 位玩家！");
-        return;
+    /* 新增功能 1：修改任務名稱 */
+    function editTaskName(taskId) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return;
+      
+      const newName = prompt("請輸入新的作業名稱：", task.name);
+      if (newName !== null) {
+        const trimmed = newName.trim();
+        if (trimmed) {
+          task.name = trimmed;
+          saveData();
+          renderDailyBoard();
+        } else {
+          alert("作業名稱不能為空！");
+        }
       }
-      const newIdx = tempPlayers.length;
-      tempPlayers.push({
-        id: newIdx + 1,
-        name: `新`,
-        color: colorPalette[newIdx % colorPalette.length],
-        position: 0
-      });
-      renderModalInputs();
     }
 
-    function removePlayer(index) {
-      if (tempPlayers.length <= 1) {
-        alert("至少需要保留 1 位玩家！");
-        return;
-      }
-      tempPlayers.splice(index, 1);
-      renderModalInputs();
+    function cycleStatus(student, taskId) {
+      const key = `${student}_${taskId}`;
+      const current = state.records[key] || 'unsubmitted';
+      
+      if (current === 'unsubmitted') state.records[key] = 'correcting';
+      else if (current === 'correcting') state.records[key] = 'done';
+      else if (current === 'done') state.records[key] = 'unsubmitted';
+
+      saveData();
+      renderDailyBoard();
     }
 
-    function saveNames() {
-      tempPlayers.forEach((p, idx) => {
-        const inputVal = document.getElementById(`temp-p-${idx}`).value.trim();
-        p.name = inputVal || `${idx + 1}`;
-        p.id = idx + 1;
-        p.color = colorPalette[idx % colorPalette.length];
+    // 科目分類管理 Modal 邏輯
+    function openCategoryModal() {
+      renderCategoryList();
+      document.getElementById('category-modal').style.display = 'flex';
+    }
+
+    function closeCategoryModal() {
+      document.getElementById('category-modal').style.display = 'none';
+    }
+
+    function renderCategoryList() {
+      const list = document.getElementById('category-list');
+      list.innerHTML = '';
+      state.categories.forEach((cat, index) => {
+        list.innerHTML += `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <input type="text" value="${cat}" style="width:70%; padding:6px;" onchange="updateCategory(${index}, this.value)">
+            <button style="color:var(--danger); border:none; background:none; cursor:pointer;" onclick="deleteCategory(${index})">刪除</button>
+          </div>`;
+      });
+    }
+
+    function addCategory() {
+      const input = document.getElementById('new-category-input');
+      const val = input.value.trim();
+      if (val && !state.categories.includes(val)) {
+        state.categories.push(val);
+        input.value = '';
+        saveData();
+        renderCategoryList();
+      }
+    }
+
+    function updateCategory(index, newVal) {
+      newVal = newVal.trim();
+      if (newVal) {
+        state.categories[index] = newVal;
+        saveData();
+      }
+    }
+
+    function deleteCategory(index) {
+      if (confirm(`確定要刪除「${state.categories[index]}」分類嗎？`)) {
+        state.categories.splice(index, 1);
+        saveData();
+        renderCategoryList();
+      }
+    }
+
+    // 新增任務
+    function openTaskModal() {
+      const select = document.getElementById('task-category-select');
+      select.innerHTML = '';
+      state.categories.forEach(cat => {
+        select.innerHTML += `<option value="${cat}">${cat}</option>`;
+      });
+      document.getElementById('task-name-input').value = '';
+      document.getElementById('task-modal').style.display = 'flex';
+    }
+
+    function closeTaskModal() {
+      document.getElementById('task-modal').style.display = 'none';
+    }
+
+    function saveNewTask() {
+      const category = document.getElementById('task-category-select').value;
+      const name = document.getElementById('task-name-input').value.trim();
+      if (!name) return alert("請輸入作業名稱！");
+
+      const newTaskId = Date.now();
+      state.tasks.push({ id: newTaskId, category, name });
+
+      state.students.forEach(student => {
+        state.records[`${student}_${newTaskId}`] = 'unsubmitted';
       });
 
-      players = tempPlayers;
-      if (currentPlayerIndex >= players.length) currentPlayerIndex = 0;
+      saveData();
+      closeTaskModal();
+      renderDailyBoard();
+    }
 
-      document.getElementById("name-modal").style.display = "none";
-      updatePieces();
-      updatePlayerDisplay();
+    function deleteTask(taskId) {
+      if (confirm("確定要刪除這個任務欄位嗎？")) {
+        state.tasks = state.tasks.filter(t => t.id !== taskId);
+        for (let key in state.records) {
+          if (key.endsWith(`_${taskId}`)) delete state.records[key];
+        }
+        saveData();
+        renderDailyBoard();
+      }
+    }
+
+    // 2. 累計核銷
+    function renderStudentTags() {
+      const container = document.getElementById('student-tags');
+      container.innerHTML = `<button class="tag-btn ${selectedStudentFilter==='ALL'?'active':''}" onclick="filterByStudent('ALL')">全部學生</button>`;
+      state.students.forEach(student => {
+        const active = selectedStudentFilter === student ? 'active' : '';
+        container.innerHTML += `<button class="tag-btn ${active}" onclick="filterByStudent('${student}')">${student}</button>`;
+      });
+    }
+
+    function filterByStudent(student) {
+      selectedStudentFilter = student;
+      renderStudentTags();
+      renderCumulative();
+    }
+
+    function renderCumulative() {
+      const list = document.getElementById('cumulative-list');
+      list.innerHTML = '';
+
+      state.students.forEach(student => {
+        if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== student) return;
+
+        state.tasks.forEach(task => {
+          const key = `${student}_${task.id}`;
+          const status = state.records[key] || 'unsubmitted';
+
+          if (status === 'unsubmitted' || status === 'correcting') {
+            const statusText = status === 'unsubmitted' ? '<span style="color:var(--danger);font-weight:600;">未繳</span>' : '<span style="color:var(--warning);font-weight:600;">訂正</span>';
+            list.innerHTML += `
+              <tr>
+                <td><b>${student}</b></td>
+                <td>${task.category}</td>
+                <td>${task.name}</td>
+                <td>${statusText}</td>
+                <td><button class="btn-verify" onclick="verifyTask('${student}', ${task.id})">核銷(完成)</button></td>
+              </tr>`;
+          }
+        });
+      });
+    }
+
+    function verifyTask(student, taskId) {
+      state.records[`${student}_${taskId}`] = 'done';
+      saveData();
+      renderCumulative();
+    }
+
+    // 3. 列印功能 (字體已放大設計)
+    function renderPrintCheckboxes() {
+      const container = document.getElementById('print-checkboxes');
+      container.innerHTML = '';
+      state.students.forEach(student => {
+        container.innerHTML += `<label><input type="checkbox" class="print-chk" value="${student}" checked> ${student}</label>`;
+      });
+    }
+
+    function selectAllPrint(select) {
+      document.querySelectorAll('.print-chk').forEach(chk => chk.checked = select);
+    }
+
+    function triggerPrint() {
+      const selectedStudents = Array.from(document.querySelectorAll('.print-chk:checked')).map(cb => cb.value);
+      if (selectedStudents.length === 0) return alert("請至少選取一位學生！");
+
+      const printContainer = document.getElementById('print-container');
+      printContainer.innerHTML = '';
+
+      for (let i = 0; i < selectedStudents.length; i += 4) {
+        const pageStudents = selectedStudents.slice(i, i + 4);
+        let pageHtml = `<div class="print-page">`;
+
+        pageStudents.forEach(student => {
+          pageHtml += `<div class="print-card"><h3>${student} - 欠繳與訂正清單</h3>`;
+          const catMap = {};
+          state.tasks.forEach(task => {
+            const status = state.records[`${student}_${task.id}`] || 'unsubmitted';
+            if (status === 'unsubmitted' || status === 'correcting') {
+              if (!catMap[task.category]) catMap[task.category] = [];
+              catMap[task.category].push({ name: task.name, status });
+            }
+          });
+
+          if (Object.keys(catMap).length === 0) {
+            pageHtml += `<p style="margin-top:15px; color:green; font-size:1.2rem; font-weight:bold;">目前作業全數完成！</p>`;
+          } else {
+            for (let cat in catMap) {
+              pageHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
+              catMap[cat].forEach(item => {
+                const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#dc2626;">(未繳)</span>' : '<span class="status-tag-print" style="color:#d97706;">(訂正)</span>';
+                pageHtml += `<li>${item.name} ${tag}</li>`;
+              });
+              pageHtml += `</ul>`;
+            }
+          }
+          pageHtml += `</div>`;
+        });
+
+        pageHtml += `</div>`;
+        printContainer.innerHTML += pageHtml;
+      }
+      window.print();
+    }
+
+    // 學生名單管理
+    function openStudentModal() {
+      renderStudentEditList();
+      document.getElementById('student-modal').style.display = 'flex';
+    }
+
+    function closeStudentModal() {
+      document.getElementById('student-modal').style.display = 'none';
+      renderDailyBoard();
+    }
+
+    function saveBatchStudents() {
+      const raw = document.getElementById('batch-student-input').value;
+      if (!raw.trim()) return;
+      
+      const newNames = raw.split(/[\n,，]/).map(s => s.trim()).filter(s => s.length > 0);
+      newNames.forEach(name => {
+        if (!state.students.includes(name)) state.students.push(name);
+      });
+
+      document.getElementById('batch-student-input').value = '';
+      saveData();
+      renderStudentEditList();
+    }
+
+    function renderStudentEditList() {
+      const tbody = document.getElementById('student-edit-list');
+      tbody.innerHTML = '';
+      state.students.forEach((student, index) => {
+        tbody.innerHTML += `
+          <tr>
+            <td><input type="text" value="${student}" style="padding:6px; border-radius:6px; border:1px solid var(--border-color); width:90%;" onchange="updateStudentName(${index}, this.value)"></td>
+            <td style="width:50px; text-align:right;"><button style="color:var(--danger); border:none; background:none; cursor:pointer;" onclick="deleteStudent(${index})">刪除</button></td>
+          </tr>`;
+      });
+    }
+
+    function updateStudentName(index, newName) {
+      newName = newName.trim();
+      const oldName = state.students[index];
+      if (!newName || newName === oldName) return;
+
+      state.students[index] = newName;
+      for (let key in state.records) {
+        if (key.startsWith(`${oldName}_`)) {
+          const taskId = key.split('_')[1];
+          state.records[`${newName}_${taskId}`] = state.records[key];
+          delete state.records[key];
+        }
+      }
+      saveData();
+      renderStudentEditList();
+    }
+
+    function deleteStudent(index) {
+      if (confirm(`確定刪除「${state.students[index]}」嗎？`)) {
+        state.students.splice(index, 1);
+        saveData();
+        renderStudentEditList();
+      }
+    }
+
+    function syncCloud() {
+      if (GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) return alert("請先將程式碼中的 GAS_WEB_APP_URL 替換為你的 Web App URL！");
+      fetch(GAS_WEB_APP_URL)
+        .then(res => res.json())
+        .then(remote => {
+          state = remote;
+          saveData();
+          init();
+          alert("雲端資料同步完成！");
+        });
     }
 
     init();
