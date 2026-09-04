@@ -302,11 +302,11 @@
       <h3>學生名單管理</h3>
       <div class="form-group" style="margin-top:10px;">
         <label>批量新增學生（每行一位）：</label>
-        <textarea id="batch-student-input" style="height:65px;" placeholder="張小明&#10;李小華"></textarea>
+        <textarea id="batch-student-input" style="height:65px;" placeholder="01 張小明&#10;02 李小華"></textarea>
         <button style="margin-top:6px; padding:6px 12px; background:#f1f5f9; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;" onclick="saveBatchStudents()">批量加入名單</button>
       </div>
       <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
-      <h4>現有名單 (已按字首排序)：</h4>
+      <h4>現有名單 (已按號碼數字排序)：</h4>
       <table class="student-edit-table">
         <tbody id="student-edit-list"></tbody>
       </table>
@@ -314,7 +314,7 @@
         <button onclick="closeStudentModal()">關閉</button>
       </div>
     </div>
-  </div>
+  </main>
 
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
@@ -331,15 +331,15 @@
     // 初始預設範例資料
     const defaultState = {
       categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
-      students: ["陳美麗", "林阿強", "李小華", "王大同", "張小明"],
+      students: ["01號 張小明", "02號 李小華", "03號 王大同", "04號 陳美麗", "05號 林阿強"],
       tasks: [
         { id: 1, date: getTodayString(), category: "國語", name: "國語習作 L3" },
         { id: 2, date: getTodayString(), category: "數學", name: "數學習作 P.15" }
       ],
       records: {
-        "張小明_1": "unsubmitted",
-        "張小明_2": "correcting",
-        "李小華_1": "unsubmitted"
+        "01號 張小明_1": "unsubmitted",
+        "01號 張小明_2": "correcting",
+        "02號 李小華_1": "unsubmitted"
       }
     };
 
@@ -355,7 +355,7 @@
           state = JSON.parse(JSON.stringify(defaultState));
         }
       }
-      sortStudentsByFirstLetter();
+      sortStudentsByNumber();
       renderDailyBoard();
       renderStudentTags();
       renderCumulative();
@@ -363,17 +363,27 @@
     }
 
     function saveData() {
-      sortStudentsByFirstLetter();
+      sortStudentsByNumber();
       localStorage.setItem("tracker_data_v4", JSON.stringify(state));
       if (!GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) {
         fetch(GAS_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(state) });
       }
     }
 
-    // 依字首（拼音/字母首字）排序學生名單
-    function sortStudentsByFirstLetter() {
+    // 依名字前面的數字（座號）小到大排序
+    function sortStudentsByNumber() {
       if (state.students && state.students.length > 0) {
-        state.students.sort((a, b) => a.localeCompare(b, 'zh-Hans-CN', { sensitivity: 'base' }));
+        state.students.sort((a, b) => {
+          const matchA = a.match(/\d+/);
+          const matchB = b.match(/\d+/);
+          const numA = matchA ? parseInt(matchA[0], 10) : Infinity;
+          const numB = matchB ? parseInt(matchB[0], 10) : Infinity;
+
+          if (numA !== numB) {
+            return numA - numB;
+          }
+          return a.localeCompare(b, 'zh-Hant');
+        });
       }
     }
 
@@ -421,7 +431,6 @@
       board.innerHTML = '';
 
       const todayStr = getTodayString();
-      // 只篩選出作業日期等於今天的任務
       const todayTasks = state.tasks.filter(t => t.date === todayStr);
 
       if (todayTasks.length === 0) {
@@ -561,7 +570,6 @@
         return;
       }
       
-      // 自動設為當日日期
       document.getElementById('task-date-input').value = getTodayString();
 
       const select = document.getElementById('task-category-select');
