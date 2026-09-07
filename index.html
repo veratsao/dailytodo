@@ -492,7 +492,7 @@
         <button onclick="closeStudentModal()">關閉</button>
       </div>
     </div>
-  </div>
+  </main>
 
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
@@ -1057,7 +1057,6 @@
                 const dateStr = item.date ? `[${item.date}] ` : '';
                 cardContentHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
               });
-              catMap[cat].forEach = function(){}; // clean
               cardContentHtml += `</ul>`;
             }
 
@@ -1176,7 +1175,7 @@
           state = remote;
           saveData();
           init();
-          alert("雲端資料同步完成！");
+          alert("雲端同步完成！");
         });
     }
 
