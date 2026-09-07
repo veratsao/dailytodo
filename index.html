@@ -6,78 +6,81 @@
   <title>學生作業進度追蹤管理系統</title>
   <style>
     :root {
-      --bg-color: #f8fafc;
+      --bg-color: #f4f8fa;
       --card-bg: #ffffff;
-      --primary: #4f46e5;       /* 靛藍色系 - 主視覺 */
-      --primary-hover: #4338ca;
-      --danger: #ef4444;        /* 未繳 - 鮮紅 */
-      --warning: #f59e0b;       /* 訂正 - 琥珀黃 */
-      --success: #10b981;       /* 完成 - 翡翠綠 */
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
+      
+      /* 您指定的新色彩主題 */
+      --color-primary: #067BC2;     /* 主視覺蔚藍 */
+      --color-secondary: #84BCDA;   /* 次要天空藍 */
+      --color-yellow: #ECC30B;      /* 訂正金黃 */
+      --color-orange: #F37748;      /* 未繳珊瑚橙 */
+      --color-red: #D56062;         /* 刪除/重置珊瑚紅 */
+      
+      --text-main: #1c2d37;
+      --text-muted: #5a7384;
+      --border-color: #d1e3ed;
       --radius: 12px;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+      --shadow-sm: 0 1px 3px rgba(6, 123, 194, 0.08);
+      --shadow-md: 0 4px 10px rgba(6, 123, 194, 0.12);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
+    body { background-color: var(--bg-color); color: var(--text-main); padding: 12px; }
 
     .no-print { display: block; }
     .print-only { display: none; }
 
-    /* 頂部導覽列：強制依序排成單一橫行 */
+    /* 頂部導覽列 */
     header { 
       display: flex;
       align-items: center; 
       background: var(--card-bg); 
-      padding: 12px 20px; 
+      padding: 8px 14px; 
       border-radius: var(--radius); 
       box-shadow: var(--shadow-md); 
-      margin-bottom: 20px; 
+      margin-bottom: 12px; 
       border: 1px solid var(--border-color);
-      overflow-x: auto;          /* 超出寬度時支援水平滾動 */
-      white-space: nowrap;       /* 防止內部元素換行 */
+      overflow-x: auto;
+      white-space: nowrap;
     }
 
     .nav-header-row {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       width: 100%;
     }
 
     .nav-header-row button { 
-      padding: 9px 16px; 
+      padding: 7px 12px; 
       border: 1px solid transparent; 
       border-radius: 8px; 
       cursor: pointer; 
       font-weight: 600; 
-      font-size: 0.9rem; 
+      font-size: 0.85rem; 
       transition: all 0.2s ease; 
-      background: #f1f5f9; 
+      background: #eef5f9; 
       color: var(--text-muted); 
-      flex-shrink: 0;          /* 保持按鈕原尺寸不被擠壓 */
+      flex-shrink: 0;
     }
     
-    .nav-header-row button:hover { background: #e2e8f0; color: var(--text-main); }
-    .nav-header-row button.active { background-color: var(--primary); color: white; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3); }
+    .nav-header-row button:hover { background: #e0edf4; color: var(--text-main); }
+    .nav-header-row button.active { background-color: var(--color-primary); color: white; box-shadow: 0 2px 5px rgba(6, 123, 194, 0.3); }
     
-    .nav-header-row button.btn-primary { background-color: var(--primary); color: white; }
-    .nav-header-row button.btn-primary:hover { background-color: var(--primary-hover); }
-    .nav-header-row button.btn-sync { background-color: #ecfdf5; color: #047857; border-color: #a7f3d0; }
-    .nav-header-row button.btn-sync:hover { background-color: #d1fae5; }
-    .nav-header-row button.btn-reset { background-color: #fef2f2; color: #dc2626; border-color: #fca5a5; }
-    .nav-header-row button.btn-reset:hover { background-color: #fee2e2; }
-    .nav-header-row button.btn-print { background-color: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
-    .nav-header-row button.btn-print:hover { background-color: #e0f2fe; }
+    .nav-header-row button.btn-primary { background-color: var(--color-primary); color: white; }
+    .nav-header-row button.btn-primary:hover { background-color: #0569a6; }
+    .nav-header-row button.btn-sync { background-color: #eef8fc; color: var(--color-primary); border-color: var(--color-secondary); }
+    .nav-header-row button.btn-sync:hover { background-color: #d8edf6; }
+    .nav-header-row button.btn-reset { background-color: #fdf2f2; color: var(--color-red); border-color: #f5babb; }
+    .nav-header-row button.btn-reset:hover { background-color: #fbe5e6; }
+    .nav-header-row button.btn-print { background-color: #fefcf3; color: #b08f00; border-color: #f7e692; }
+    .nav-header-row button.btn-print:hover { background-color: #fdf6d5; }
 
     .nav-divider {
       width: 1px;
-      height: 24px;
+      height: 20px;
       background-color: var(--border-color);
-      margin: 0 4px;
+      margin: 0 2px;
       flex-shrink: 0;
     }
 
@@ -85,57 +88,105 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* 每日作業狀態 - 看板卡片 */
-    .task-board { display: flex; overflow-x: auto; gap: 18px; padding-bottom: 20px; align-items: flex-start; min-height: 200px; }
-    .task-column { 
-      background: var(--card-bg); width: 300px; min-width: 300px; border-radius: var(--radius); 
-      box-shadow: var(--shadow-md); border: 1px solid var(--border-color); padding: 16px; position: relative; 
+    /* 平板橫向滿版看板 */
+    .task-board { 
+      display: flex; 
+      gap: 10px; 
+      align-items: flex-start; 
+      height: calc(100vh - 80px);
+      width: 100%;
     }
-    .task-header { margin-bottom: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; padding-right: 28px; }
-    .task-meta { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-muted); }
-    .task-title-container { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
-    .task-title { font-size: 1.05rem; font-weight: 700; color: var(--text-main); line-height: 1.4; flex-grow: 1; word-break: break-all; }
-    .btn-edit-title { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; border-radius: 4px; }
-    .btn-edit-title:hover { color: var(--primary); background: #e0e7ff; }
+
+    .task-column { 
+      background: var(--card-bg); 
+      flex: 1; 
+      min-width: 0; 
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      border-radius: var(--radius); 
+      box-shadow: var(--shadow-md); 
+      border: 1px solid var(--border-color); 
+      padding: 10px; 
+      position: relative; 
+    }
+
+    .task-header { margin-bottom: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; padding-right: 20px; flex-shrink: 0; }
+    .task-meta { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--text-muted); flex-wrap: wrap; }
+    .task-title-container { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 2px; }
+    .task-title { font-size: 0.9rem; font-weight: 700; color: var(--text-main); line-height: 1.2; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-edit-title { background: none; border: none; color: var(--color-secondary); cursor: pointer; font-size: 0.8rem; padding: 1px 3px; border-radius: 4px; }
+    .btn-edit-title:hover { color: var(--color-primary); background: #eef8fc; }
 
     .task-category-tag { 
-      font-size: 0.75rem; background: #e0e7ff; color: #3730a3; padding: 3px 8px; 
-      border-radius: 20px; font-weight: 600; display: inline-block; 
+      font-size: 0.68rem; background: #e6f2f9; color: var(--color-primary); padding: 1px 6px; 
+      border-radius: 10px; font-weight: 600; display: inline-block; 
+    }
+    .task-target-tag { 
+      font-size: 0.68rem; background: #fdf8e1; color: #8f7400; padding: 1px 6px; 
+      border-radius: 10px; font-weight: 600; display: inline-block; border: 1px solid #f7ea9b;
     }
     .task-date-tag {
-      font-size: 0.75rem; background: #f1f5f9; color: var(--text-muted); padding: 3px 8px;
-      border-radius: 20px; font-weight: 500; display: inline-block;
+      font-size: 0.68rem; background: #eef5f9; color: var(--text-muted); padding: 1px 6px;
+      border-radius: 10px; font-weight: 500; display: inline-block;
     }
     
     .btn-delete-task { 
-      position: absolute; top: 14px; right: 14px; background: none; border: none; 
-      color: #94a3b8; font-size: 1.2rem; cursor: pointer; border-radius: 4px; transition: 0.2s; 
+      position: absolute; top: 8px; right: 8px; background: none; border: none; 
+      color: #b0c4d1; font-size: 1rem; cursor: pointer; border-radius: 4px; transition: 0.2s; 
     }
-    .btn-delete-task:hover { color: var(--danger); background: #fee2e2; }
+    .btn-delete-task:hover { color: var(--color-red); background: #fdf2f2; }
 
-    /* 學生方塊 (2 列網格 + 雙色圓角卡片) */
-    .student-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .student-block { 
-      padding: 10px 8px; border-radius: 8px; color: white; font-weight: 600; font-size: 0.88rem; 
-      display: flex; flex-direction: column; align-items: center; justify-content: center; 
-      cursor: pointer; user-select: none; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
-      box-shadow: var(--shadow-sm); text-align: center; 
+    /* 2 欄網格學生方塊（採用全新 5 種色彩） */
+    .student-grid-2col { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 6px; 
+      overflow-y: auto; 
+      padding-right: 2px;
     }
-    .student-block:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.12); }
-    .student-block:active { transform: translateY(0); }
-    .student-block .status-sub { font-size: 0.72rem; font-weight: 500; opacity: 0.9; margin-top: 3px; }
+
+    .student-block { 
+      padding: 6px 8px; 
+      border-radius: 6px; 
+      color: white; 
+      font-weight: 600; 
+      font-size: 0.82rem; 
+      display: flex; 
+      flex-direction: row; 
+      align-items: center; 
+      justify-content: space-between; 
+      cursor: pointer; 
+      user-select: none; 
+      transition: all 0.15s ease; 
+      box-shadow: var(--shadow-sm); 
+      text-align: left; 
+    }
+
+    .student-block:hover { transform: scale(1.02); }
+    .student-block:active { transform: scale(0.98); }
+    .student-block .student-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; letter-spacing: -0.3px; }
+    .student-block .status-sub { font-size: 0.7rem; font-weight: 700; opacity: 0.95; margin-left: 4px; flex-shrink: 0; background: rgba(0,0,0,0.18); padding: 1px 4px; border-radius: 3px; }
     
-    .status-unsubmitted { background: linear-gradient(135deg, #ef4444, #dc2626); }
-    .status-correcting { background: linear-gradient(135deg, #f59e0b, #d97706); }
-    .status-done { background: #f1f5f9; color: #94a3b8; box-shadow: none; }
-    .status-done .status-sub { color: #cbd5e1; }
+    /* 未繳：#F37748 */
+    .status-unsubmitted { background: linear-gradient(135deg, #F37748, #e05e2e); }
+    /* 訂正：#ECC30B */
+    .status-correcting { background: linear-gradient(135deg, #ECC30B, #d6ae00); color: #3d3100; }
+    .status-correcting .status-sub { background: rgba(0,0,0,0.12); color: #3d3100; }
+    /* 完成：預設輕量白灰色調 */
+    .status-done { background: #eef5f9; color: #7f9ab0; box-shadow: none; border: 1px solid var(--border-color); }
+    .status-done .status-sub { color: #7f9ab0; background: #dce7ee; }
+    
+    /* 免繳/非指定對象樣式 */
+    .status-na { background: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; box-shadow: none; cursor: not-allowed; }
+    .status-na .status-sub { color: #cbd5e1; background: transparent; }
 
     .empty-state-box {
       width: 100%;
       background: var(--card-bg);
       border: 2px dashed var(--border-color);
       border-radius: var(--radius);
-      padding: 40px;
+      padding: 30px;
       text-align: center;
       color: var(--text-muted);
     }
@@ -188,19 +239,19 @@
 
     .tag-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border-color); background: white; cursor: pointer; font-size: 0.88rem; color: var(--text-muted); transition: 0.2s; }
     .tag-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .tag-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
+    .tag-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); font-weight: 600; }
 
     .data-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
     .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
-    .data-table th { background-color: #f8fafb; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
+    .data-table th { background-color: #f4f8fa; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
     
     .btn-action-group { display: flex; gap: 6px; }
-    .btn-correct { padding: 5px 12px; background: #fffbebfb; color: #b45309; border: 1px solid #fde68a; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-correct:hover { background: #fef3c7; }
-    .btn-verify { padding: 5px 12px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-verify:hover { background: #d1fae5; }
-    .btn-revert-unsub { padding: 5px 12px; background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-revert-unsub:hover { background: #fee2e2; }
+    .btn-correct { padding: 5px 12px; background: #fdf8e1; color: #8f7400; border: 1px solid #f7ea9b; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-correct:hover { background: #fcf1bf; }
+    .btn-verify { padding: 5px 12px; background: #eef8fc; color: var(--color-primary); border: 1px solid var(--color-secondary); border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-verify:hover { background: #d8edf6; }
+    .btn-revert-unsub { padding: 5px 12px; background: #fdf2f2; color: var(--color-red); border: 1px solid #f5babb; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-revert-unsub:hover { background: #fbe5e6; }
 
     /* 列印設定頁面 */
     .print-selector { background: var(--card-bg); padding: 20px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
@@ -257,23 +308,24 @@
     }
 
     /* Modal 彈出視窗質感設計 */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 520px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
-    .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(28, 45, 55, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 560px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--color-primary); }
     .form-group { margin-bottom: 14px; }
     .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-main); }
     .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; transition: 0.2s; }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(6, 123, 194, 0.15); }
     .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
     .modal-btns button { padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: #f8fafc; }
     
     .student-edit-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .student-edit-table th { font-size:0.8rem; text-align:left; padding:6px; color:var(--text-muted); background:#f4f8fa; }
     .student-edit-table td { padding: 8px 4px; border-bottom: 1px solid var(--border-color); }
   </style>
 </head>
 <body>
 
-  <!-- 頂部控制列（排成一整行） -->
+  <!-- 頂部列 -->
   <header class="no-print">
     <div class="nav-header-row">
       <button class="active" onclick="switchTab('daily', this)">每日作業狀態</button>
@@ -283,7 +335,7 @@
       <div class="nav-divider"></div>
       
       <button onclick="openCategoryModal()">分類項目設定</button>
-      <button onclick="openStudentModal()">管理學生名單</button>
+      <button onclick="openStudentModal()">管理學生名單與分組</button>
       <button class="btn-primary" onclick="openTaskModal()">+ 新增作業欄位</button>
       <button class="btn-sync" onclick="syncCloud()">雲端同步 (GAS)</button>
       <button class="btn-reset" onclick="resetAllData()">一鍵重置資料</button>
@@ -308,7 +360,7 @@
             <input type="checkbox" id="show-done-chk" onchange="toggleShowDone(this.checked)"> 顯示已完成項目 (可用於誤按復原)
           </label>
         </div>
-        <button style="padding:6px 12px; background:#fef2f2; color:#dc2626; border:1px solid #fca5a5; border-radius:6px; cursor:pointer; font-weight:600;" onclick="openManageTasksModal()">🗑️ 管理/刪除歷史任務</button>
+        <button style="padding:6px 12px; background:#fdf2f2; color:var(--color-red); border:1px solid #f5babb; border-radius:6px; cursor:pointer; font-weight:600;" onclick="openManageTasksModal()">🗑️ 管理/刪除歷史任務</button>
       </div>
       <div class="student-tags-bar" id="student-tags"></div>
     </div>
@@ -357,13 +409,19 @@
         <select id="task-category-select"></select>
       </div>
       <div class="form-group">
-        <label>輸入作業名稱：</label>
-        <input type="text" id="task-name-input" placeholder="例如：習作 P.10-12">
+        <label>指定對象/分組：</label>
+        <select id="task-target-group-select">
+          <option value="ALL">全班學生</option>
+        </select>
       </div>
-      <p style="font-size:0.8rem; color:var(--text-muted);">※ 新增後預設所有學生為「未完成(未繳)」狀態。</p>
+      <div class="form-group">
+        <label>輸入作業名稱：</label>
+        <input type="text" id="task-name-input" placeholder="例如：加強組抽查作業 P.10">
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-muted);">※ 若選擇指定分組，只有屬於該分組的學生會派發此作業。</p>
       <div class="modal-btns">
         <button onclick="closeTaskModal()">取消</button>
-        <button style="background:var(--primary); color:white; border:none;" onclick="saveNewTask()">確認新增</button>
+        <button style="background:var(--color-primary); color:white; border:none;" onclick="saveNewTask()">確認新增</button>
       </div>
     </div>
   </div>
@@ -391,7 +449,7 @@
         <label>新增科目分類：</label>
         <div style="display:flex; gap:8px;">
           <input type="text" id="new-category-input" placeholder="例如：本土語、藝術">
-          <button style="padding:6px 12px; background:var(--primary); color:white; border:none; border-radius:8px; cursor:pointer;" onclick="addCategory()">新增</button>
+          <button style="padding:6px 12px; background:var(--color-primary); color:white; border:none; border-radius:8px; cursor:pointer;" onclick="addCategory()">新增</button>
         </div>
       </div>
       <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
@@ -406,15 +464,23 @@
   <!-- 學生管理 Modal -->
   <div class="modal" id="student-modal">
     <div class="modal-content">
-      <h3>學生名單管理</h3>
+      <h3>學生名單與分組管理</h3>
       <div class="form-group" style="margin-top:10px;">
         <label>批量新增學生（每行一位）：</label>
         <textarea id="batch-student-input" style="height:65px;" placeholder="01 張小明&#10;02 李小華"></textarea>
-        <button style="margin-top:6px; padding:6px 12px; background:#f1f5f9; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;" onclick="saveBatchStudents()">批量加入名單</button>
+        <button style="margin-top:6px; padding:6px 12px; background:#f4f8fa; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;" onclick="saveBatchStudents()">批量加入名單</button>
       </div>
       <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
-      <h4>現有名單 (已按號碼數字排序)：</h4>
+      <h4>現有名單與分組標籤：</h4>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">※ 可以在右側欄位替學生設定分組標籤（多個分組可用逗號分隔，例如：`A組, 抽離組`）</p>
       <table class="student-edit-table">
+        <thead>
+          <tr>
+            <th style="width:45%;">學生姓名</th>
+            <th style="width:45%;">分組標籤 (如: A組)</th>
+            <th style="width:10%;">操作</th>
+          </tr>
+        </thead>
         <tbody id="student-edit-list"></tbody>
       </table>
       <div class="modal-btns">
@@ -436,28 +502,38 @@
 
     const defaultState = {
       categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
-      students: ["01號 張小明", "02號 李小華", "03號 王大同", "04號 陳美麗", "05號 林阿強"],
+      students: [
+        { name: "01 張小明", groups: ["A組"] },
+        { name: "02 李小華", groups: ["B組", "加強組"] },
+        { name: "03 王大同", groups: ["A組"] },
+        { name: "04 陳美麗", groups: ["B組"] },
+        { name: "05 林阿強", groups: ["加強組"] }
+      ],
       tasks: [
-        { id: 1, date: getTodayString(), category: "國語", name: "國語習作 L3" },
-        { id: 2, date: getTodayString(), category: "數學", name: "數學習作 P.15" }
+        { id: 1, date: getTodayString(), category: "國語", targetGroup: "ALL", name: "國語習作 L3" },
+        { id: 2, date: getTodayString(), category: "數學", targetGroup: "加強組", name: "數學習作 P.15" }
       ],
       records: {
-        "01號 張小明_1": "unsubmitted",
-        "01號 張小明_2": "correcting",
-        "02號 李小華_1": "unsubmitted"
+        "01 張小明_1": "unsubmitted",
+        "02 李小華_1": "unsubmitted",
+        "02 李小華_2": "correcting",
+        "05 林阿強_2": "unsubmitted"
       }
     };
 
     let state = JSON.parse(JSON.stringify(defaultState));
     let selectedStudentFilter = 'ALL';
     let selectedTaskFilter = 'ALL';
-    let showDoneItems = false; // 是否顯示已完成項目的標誌
+    let showDoneItems = false;
 
     function init() {
-      const saved = localStorage.getItem("tracker_data_v4");
+      const saved = localStorage.getItem("tracker_data_v5");
       if (saved) {
         try {
           state = JSON.parse(saved);
+          if (state.students && state.students.length > 0 && typeof state.students[0] === 'string') {
+            state.students = state.students.map(s => ({ name: s, groups: [] }));
+          }
         } catch (e) {
           state = JSON.parse(JSON.stringify(defaultState));
         }
@@ -472,7 +548,7 @@
 
     function saveData() {
       sortStudentsByNumber();
-      localStorage.setItem("tracker_data_v4", JSON.stringify(state));
+      localStorage.setItem("tracker_data_v5", JSON.stringify(state));
       if (!GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) {
         fetch(GAS_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(state) });
       }
@@ -481,17 +557,35 @@
     function sortStudentsByNumber() {
       if (state.students && state.students.length > 0) {
         state.students.sort((a, b) => {
-          const matchA = a.match(/\d+/);
-          const matchB = b.match(/\d+/);
+          const nameA = typeof a === 'string' ? a : a.name;
+          const nameB = typeof b === 'string' ? b : b.name;
+          const matchA = nameA.match(/\d+/);
+          const matchB = nameB.match(/\d+/);
           const numA = matchA ? parseInt(matchA[0], 10) : Infinity;
           const numB = matchB ? parseInt(matchB[0], 10) : Infinity;
 
           if (numA !== numB) {
             return numA - numB;
           }
-          return a.localeCompare(b, 'zh-Hant');
+          return nameA.localeCompare(nameB, 'zh-Hant');
         });
       }
+    }
+
+    function getAllGroupTags() {
+      const groupSet = new Set();
+      state.students.forEach(s => {
+        if (s.groups && Array.isArray(s.groups)) {
+          s.groups.forEach(g => groupSet.add(g.trim()));
+        }
+      });
+      return Array.from(groupSet).filter(g => g.length > 0);
+    }
+
+    function isStudentAssignedToTask(studentObj, taskObj) {
+      if (!taskObj.targetGroup || taskObj.targetGroup === 'ALL') return true;
+      if (!studentObj.groups || !Array.isArray(studentObj.groups)) return false;
+      return studentObj.groups.includes(taskObj.targetGroup);
     }
 
     function resetAllData() {
@@ -549,12 +643,15 @@
       }
 
       todayTasks.forEach(task => {
+        const targetGroupText = (task.targetGroup && task.targetGroup !== 'ALL') ? `<span class="task-target-tag">🎯 ${task.targetGroup}</span>` : '';
+
         let colHtml = `
           <div class="task-column">
             <button class="btn-delete-task" title="刪除此任務" onclick="deleteTask(${task.id})">&times;</button>
             <div class="task-header">
               <div class="task-meta">
                 <span class="task-category-tag">${task.category}</span>
+                ${targetGroupText}
                 <span class="task-date-tag">📅 ${task.date}</span>
               </div>
               <div class="task-title-container">
@@ -567,20 +664,31 @@
         if (state.students.length === 0) {
           colHtml += `<div style="grid-column: span 2; text-align:center; color:var(--text-muted); padding:10px; font-size:0.85rem;">尚未建立學生名單</div>`;
         } else {
-          state.students.forEach(student => {
-            const key = `${student}_${task.id}`;
-            const status = state.records[key] || 'unsubmitted';
-            
-            let statusClass = 'status-unsubmitted';
-            let statusText = '未繳';
-            if (status === 'correcting') { statusClass = 'status-correcting'; statusText = '訂正'; }
-            else if (status === 'done') { statusClass = 'status-done'; statusText = '完成'; }
+          state.students.forEach(studentObj => {
+            const studentName = studentObj.name;
+            const isAssigned = isStudentAssignedToTask(studentObj, task);
 
-            colHtml += `
-              <div class="student-block ${statusClass}" onclick="cycleStatus('${student}', ${task.id})">
-                <span>${student}</span>
-                <span class="status-sub">${statusText}</span>
-              </div>`;
+            if (!isAssigned) {
+              colHtml += `
+                <div class="student-block status-na" title="非指定分組作業">
+                  <span class="student-name-text">${studentName}</span>
+                  <span class="status-sub">免</span>
+                </div>`;
+            } else {
+              const key = `${studentName}_${task.id}`;
+              const status = state.records[key] || 'unsubmitted';
+              
+              let statusClass = 'status-unsubmitted';
+              let statusText = '未';
+              if (status === 'correcting') { statusClass = 'status-correcting'; statusText = '訂'; }
+              else if (status === 'done') { statusClass = 'status-done'; statusText = '完'; }
+
+              colHtml += `
+                <div class="student-block ${statusClass}" onclick="cycleStatus('${studentName}', ${task.id})">
+                  <span class="student-name-text">${studentName}</span>
+                  <span class="status-sub">${statusText}</span>
+                </div>`;
+            }
           });
         }
 
@@ -607,8 +715,8 @@
       }
     }
 
-    function cycleStatus(student, taskId) {
-      const key = `${student}_${taskId}`;
+    function cycleStatus(studentName, taskId) {
+      const key = `${studentName}_${taskId}`;
       const current = state.records[key] || 'unsubmitted';
       
       if (current === 'unsubmitted') state.records[key] = 'correcting';
@@ -624,7 +732,8 @@
       select.innerHTML = '<option value="ALL">顯示全部作業項目</option>';
       state.tasks.forEach(task => {
         const selected = selectedTaskFilter == task.id ? 'selected' : '';
-        select.innerHTML += `<option value="${task.id}" ${selected}>[${task.date}] ${task.category} - ${task.name}</option>`;
+        const groupInfo = (task.targetGroup && task.targetGroup !== 'ALL') ? ` (${task.targetGroup})` : '';
+        select.innerHTML += `<option value="${task.id}" ${selected}>[${task.date}] ${task.category} - ${task.name}${groupInfo}</option>`;
       });
     }
 
@@ -641,14 +750,15 @@
     function renderStudentTags() {
       const container = document.getElementById('student-tags');
       container.innerHTML = `<button class="tag-btn ${selectedStudentFilter==='ALL'?'active':''}" onclick="filterByStudent('ALL')">全部學生</button>`;
-      state.students.forEach(student => {
-        const active = selectedStudentFilter === student ? 'active' : '';
-        container.innerHTML += `<button class="tag-btn ${active}" onclick="filterByStudent('${student}')">${student}</button>`;
+      state.students.forEach(s => {
+        const studentName = s.name;
+        const active = selectedStudentFilter === studentName ? 'active' : '';
+        container.innerHTML += `<button class="tag-btn ${active}" onclick="filterByStudent('${studentName}')">${studentName}</button>`;
       });
     }
 
-    function filterByStudent(student) {
-      selectedStudentFilter = student;
+    function filterByStudent(studentName) {
+      selectedStudentFilter = studentName;
       renderStudentTags();
       renderCumulative();
     }
@@ -663,44 +773,47 @@
       }
 
       let count = 0;
-      state.students.forEach(student => {
-        if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== student) return;
+      state.students.forEach(studentObj => {
+        const studentName = studentObj.name;
+        if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== studentName) return;
 
         state.tasks.forEach(task => {
           if (selectedTaskFilter !== 'ALL' && selectedTaskFilter != task.id) return;
+          if (!isStudentAssignedToTask(studentObj, task)) return;
 
-          const key = `${student}_${task.id}`;
+          const key = `${studentName}_${task.id}`;
           const status = state.records[key] || 'unsubmitted';
 
-          // 判斷是否需要繪製此行：未完成/訂正，或是在開啟「顯示已完成」時呈現已完成項目
           if (status === 'unsubmitted' || status === 'correcting' || (showDoneItems && status === 'done')) {
             count++;
             let statusText = '';
             let actionButtons = '';
 
             if (status === 'unsubmitted') {
-              statusText = '<span style="color:var(--danger);font-weight:600;">未繳</span>';
+              statusText = '<span style="color:var(--color-orange);font-weight:700;">未繳</span>';
               actionButtons = `
-                <button class="btn-correct" onclick="setTaskStatus('${student}', ${task.id}, 'correcting')">標記(訂正)</button>
-                <button class="btn-verify" onclick="setTaskStatus('${student}', ${task.id}, 'done')">核銷(完成)</button>`;
+                <button class="btn-correct" onclick="setTaskStatus('${studentName}', ${task.id}, 'correcting')">標記(訂正)</button>
+                <button class="btn-verify" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">核銷(完成)</button>`;
             } else if (status === 'correcting') {
-              statusText = '<span style="color:var(--warning);font-weight:600;">訂正</span>';
+              statusText = '<span style="color:#b08f00;font-weight:700;">訂正</span>';
               actionButtons = `
-                <button class="btn-revert-unsub" onclick="setTaskStatus('${student}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
-                <button class="btn-verify" onclick="setTaskStatus('${student}', ${task.id}, 'done')">核銷(完成)</button>`;
+                <button class="btn-revert-unsub" onclick="setTaskStatus('${studentName}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
+                <button class="btn-verify" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">核銷(完成)</button>`;
             } else if (status === 'done') {
-              statusText = '<span style="color:var(--success);font-weight:600;">已完成</span>';
+              statusText = '<span style="color:var(--color-primary);font-weight:700;">已完成</span>';
               actionButtons = `
-                <button class="btn-revert-unsub" onclick="setTaskStatus('${student}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
-                <button class="btn-correct" onclick="setTaskStatus('${student}', ${task.id}, 'correcting')">復原(訂正)</button>`;
+                <button class="btn-revert-unsub" onclick="setTaskStatus('${studentName}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
+                <button class="btn-correct" onclick="setTaskStatus('${studentName}', ${task.id}, 'correcting')">復原(訂正)</button>`;
             }
+
+            const targetGroupTag = (task.targetGroup && task.targetGroup !== 'ALL') ? `<span class="task-target-tag" style="margin-left:4px;">🎯 ${task.targetGroup}</span>` : '';
 
             list.innerHTML += `
               <tr>
-                <td><b>${student}</b></td>
+                <td><b>${studentName}</b></td>
                 <td>${task.date || '-'}</td>
                 <td>${task.category}</td>
-                <td>${task.name}</td>
+                <td>${task.name} ${targetGroupTag}</td>
                 <td>${statusText}</td>
                 <td><div class="btn-action-group">${actionButtons}</div></td>
               </tr>`;
@@ -709,12 +822,12 @@
       });
 
       if (count === 0) {
-        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--success); padding:20px; font-weight:600;">🎉 所選條件下目前沒有需處理的作業項目！</td></tr>`;
+        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-primary); padding:20px; font-weight:600;">🎉 所選條件下目前沒有需處理的作業項目！</td></tr>`;
       }
     }
 
-    function setTaskStatus(student, taskId, newStatus) {
-      state.records[`${student}_${taskId}`] = newStatus;
+    function setTaskStatus(studentName, taskId, newStatus) {
+      state.records[`${studentName}_${taskId}`] = newStatus;
       saveData();
       renderCumulative();
       renderDailyBoard();
@@ -740,13 +853,14 @@
         return;
       }
       state.tasks.forEach(task => {
+        const groupInfo = (task.targetGroup && task.targetGroup !== 'ALL') ? ` [對象:${task.targetGroup}]` : '';
         tbody.innerHTML += `
           <tr>
             <td>
-              <b>[${task.date}] ${task.category}</b> - ${task.name}
+              <b>[${task.date}] ${task.category}</b> - ${task.name} <span style="color:var(--text-muted); font-size:0.8rem;">${groupInfo}</span>
             </td>
             <td style="width:70px; text-align:right;">
-              <button style="color:var(--danger); border:1px solid #fca5a5; background:#fef2f2; padding:4px 8px; border-radius:6px; cursor:pointer;" onclick="deleteTaskInModal(${task.id})">刪除</button>
+              <button style="color:var(--color-red); border:1px solid #f5babb; background:#fdf2f2; padding:4px 8px; border-radius:6px; cursor:pointer;" onclick="deleteTaskInModal(${task.id})">刪除</button>
             </td>
           </tr>`;
       });
@@ -784,7 +898,7 @@
         list.innerHTML += `
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <input type="text" value="${cat}" style="width:70%; padding:6px;" onchange="updateCategory(${index}, this.value)">
-            <button style="color:var(--danger); border:none; background:none; cursor:pointer;" onclick="deleteCategory(${index})">刪除</button>
+            <button style="color:var(--color-red); border:none; background:none; cursor:pointer;" onclick="deleteCategory(${index})">刪除</button>
           </div>`;
       });
     }
@@ -825,11 +939,19 @@
       
       document.getElementById('task-date-input').value = getTodayString();
 
-      const select = document.getElementById('task-category-select');
-      select.innerHTML = '';
+      const catSelect = document.getElementById('task-category-select');
+      catSelect.innerHTML = '';
       state.categories.forEach(cat => {
-        select.innerHTML += `<option value="${cat}">${cat}</option>`;
+        catSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
       });
+
+      const groupSelect = document.getElementById('task-target-group-select');
+      groupSelect.innerHTML = '<option value="ALL">全班學生</option>';
+      const allGroups = getAllGroupTags();
+      allGroups.forEach(g => {
+        groupSelect.innerHTML += `<option value="${g}">指定 [${g}] 學生</option>`;
+      });
+
       document.getElementById('task-name-input').value = '';
       document.getElementById('task-modal').style.display = 'flex';
     }
@@ -841,14 +963,17 @@
     function saveNewTask() {
       const date = document.getElementById('task-date-input').value || getTodayString();
       const category = document.getElementById('task-category-select').value;
+      const targetGroup = document.getElementById('task-target-group-select').value;
       const name = document.getElementById('task-name-input').value.trim();
       if (!name) return alert("請輸入作業名稱！");
 
       const newTaskId = Date.now();
-      state.tasks.push({ id: newTaskId, date, category, name });
+      state.tasks.push({ id: newTaskId, date, category, targetGroup, name });
 
-      state.students.forEach(student => {
-        state.records[`${student}_${newTaskId}`] = 'unsubmitted';
+      state.students.forEach(s => {
+        if (isStudentAssignedToTask(s, { targetGroup })) {
+          state.records[`${s.name}_${newTaskId}`] = 'unsubmitted';
+        }
       });
 
       saveData();
@@ -863,8 +988,8 @@
         container.innerHTML = `<p style="color:var(--text-muted);">尚無學生名單可供選擇。</p>`;
         return;
       }
-      state.students.forEach(student => {
-        container.innerHTML += `<label><input type="checkbox" class="print-chk" value="${student}" checked> ${student}</label>`;
+      state.students.forEach(s => {
+        container.innerHTML += `<label><input type="checkbox" class="print-chk" value="${s.name}" checked> ${s.name}</label>`;
       });
     }
 
@@ -882,10 +1007,14 @@
       const ITEMS_PER_CARD = 8;
       const allCards = [];
 
-      selectedStudents.forEach(student => {
+      selectedStudents.forEach(studentName => {
+        const studentObj = state.students.find(s => s.name === studentName) || { name: studentName, groups: [] };
         const items = [];
+
         state.tasks.forEach(task => {
-          const status = state.records[`${student}_${task.id}`] || 'unsubmitted';
+          if (!isStudentAssignedToTask(studentObj, task)) return;
+
+          const status = state.records[`${studentName}_${task.id}`] || 'unsubmitted';
           if (status === 'unsubmitted' || status === 'correcting') {
             items.push({
               category: task.category,
@@ -898,7 +1027,7 @@
 
         if (items.length === 0) {
           allCards.push({
-            student: student,
+            student: studentName,
             pageLabel: '',
             contentHtml: `<p style="margin-top:15px; color:green; font-size:1.2rem; font-weight:bold;">目前作業全數完成！</p>`
           });
@@ -919,7 +1048,7 @@
             for (let cat in catMap) {
               cardContentHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
               catMap[cat].forEach(item => {
-                const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#dc2626;">(未繳)</span>' : '<span class="status-tag-print" style="color:#d97706;">(訂正)</span>';
+                const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#F37748;">(未繳)</span>' : '<span class="status-tag-print" style="color:#b08f00;">(訂正)</span>';
                 const dateStr = item.date ? `[${item.date}] ` : '';
                 cardContentHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
               });
@@ -927,7 +1056,7 @@
             }
 
             allCards.push({
-              student: student,
+              student: studentName,
               pageLabel: pageLabel,
               contentHtml: cardContentHtml
             });
@@ -974,7 +1103,9 @@
       
       const newNames = raw.split(/[\n,，]/).map(s => s.trim()).filter(s => s.length > 0);
       newNames.forEach(name => {
-        if (!state.students.includes(name)) state.students.push(name);
+        if (!state.students.some(s => s.name === name)) {
+          state.students.push({ name: name, groups: [] });
+        }
       });
 
       document.getElementById('batch-student-input').value = '';
@@ -986,24 +1117,26 @@
       const tbody = document.getElementById('student-edit-list');
       tbody.innerHTML = '';
       if (state.students.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--text-muted); padding:10px;">目前無學生名單</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:10px;">目前無學生名單</td></tr>`;
         return;
       }
-      state.students.forEach((student, index) => {
+      state.students.forEach((s, index) => {
+        const groupStr = (s.groups && Array.isArray(s.groups)) ? s.groups.join(', ') : '';
         tbody.innerHTML += `
           <tr>
-            <td><input type="text" value="${student}" style="padding:6px; border-radius:6px; border:1px solid var(--border-color); width:90%;" onchange="updateStudentName(${index}, this.value)"></td>
-            <td style="width:50px; text-align:right;"><button style="color:var(--danger); border:none; background:none; cursor:pointer;" onclick="deleteStudent(${index})">刪除</button></td>
+            <td><input type="text" value="${s.name}" style="padding:6px; border-radius:6px; border:1px solid var(--border-color); width:95%;" onchange="updateStudentName(${index}, this.value)"></td>
+            <td><input type="text" value="${groupStr}" placeholder="如: A組, 加強組" style="padding:6px; border-radius:6px; border:1px solid var(--border-color); width:95%;" onchange="updateStudentGroups(${index}, this.value)"></td>
+            <td style="text-align:center;"><button style="color:var(--color-red); border:none; background:none; cursor:pointer;" onclick="deleteStudent(${index})">刪除</button></td>
           </tr>`;
       });
     }
 
     function updateStudentName(index, newName) {
       newName = newName.trim();
-      const oldName = state.students[index];
+      const oldName = state.students[index].name;
       if (!newName || newName === oldName) return;
 
-      state.students[index] = newName;
+      state.students[index].name = newName;
       for (let key in state.records) {
         if (key.startsWith(`${oldName}_`)) {
           const taskId = key.split('_')[1];
@@ -1015,8 +1148,14 @@
       renderStudentEditList();
     }
 
+    function updateStudentGroups(index, rawGroups) {
+      const groups = rawGroups.split(/[,，]/).map(g => g.trim()).filter(g => g.length > 0);
+      state.students[index].groups = groups;
+      saveData();
+    }
+
     function deleteStudent(index) {
-      if (confirm(`確定刪除「${state.students[index]}」嗎？`)) {
+      if (confirm(`確定刪除「${state.students[index].name}」嗎？`)) {
         state.students.splice(index, 1);
         saveData();
         renderStudentEditList();
