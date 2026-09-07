@@ -9,10 +9,10 @@
       --bg-color: #f4f8fa;
       --card-bg: #ffffff;
       
-      /* 您指定的新色彩主題 */
+      /* 色彩主題 */
       --color-primary: #067BC2;     /* 主視覺蔚藍 */
       --color-secondary: #84BCDA;   /* 次要天空藍 */
-      --color-yellow: #ECC30B;      /* 訂正金黃 */
+      --color-yellow: #FFD6C0;      /* 訂正粉蜜桃色（純色） */
       --color-orange: #F37748;      /* 未繳珊瑚橙 */
       --color-red: #D56062;         /* 刪除/重置珊瑚紅 */
       
@@ -88,19 +88,24 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* 平板橫向滿版看板 */
+    /* 平板橫向看板：設定 flex-start 避免單一任務被拉寬 */
     .task-board { 
       display: flex; 
-      gap: 10px; 
+      gap: 12px; 
       align-items: flex-start; 
+      justify-content: flex-start;
       height: calc(100vh - 80px);
       width: 100%;
+      overflow-x: auto;
     }
 
+    /* 任務欄位：固定寬度範圍，不隨數量少而膨脹 */
     .task-column { 
       background: var(--card-bg); 
-      flex: 1; 
-      min-width: 0; 
+      width: 320px;
+      min-width: 280px;
+      max-width: 320px;
+      flex-shrink: 0;
       max-height: 100%;
       display: flex;
       flex-direction: column;
@@ -137,7 +142,7 @@
     }
     .btn-delete-task:hover { color: var(--color-red); background: #fdf2f2; }
 
-    /* 2 欄網格學生方塊（採用全新 5 種色彩） */
+    /* 2 欄網格學生方塊 */
     .student-grid-2col { 
       display: grid; 
       grid-template-columns: repeat(2, 1fr); 
@@ -166,19 +171,19 @@
     .student-block:hover { transform: scale(1.02); }
     .student-block:active { transform: scale(0.98); }
     .student-block .student-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; letter-spacing: -0.3px; }
-    .student-block .status-sub { font-size: 0.7rem; font-weight: 700; opacity: 0.95; margin-left: 4px; flex-shrink: 0; background: rgba(0,0,0,0.18); padding: 1px 4px; border-radius: 3px; }
+    .student-block .status-sub { font-size: 0.7rem; font-weight: 700; opacity: 0.95; margin-left: 4px; flex-shrink: 0; background: rgba(0,0,0,0.12); padding: 1px 4px; border-radius: 3px; }
     
-    /* 未繳：#F37748 */
-    .status-unsubmitted { background: linear-gradient(135deg, #F37748, #e05e2e); }
-    /* 訂正：#ECC30B */
-    .status-correcting { background: linear-gradient(135deg, #ECC30B, #d6ae00); color: #3d3100; }
-    .status-correcting .status-sub { background: rgba(0,0,0,0.12); color: #3d3100; }
-    /* 完成：預設輕量白灰色調 */
-    .status-done { background: #eef5f9; color: #7f9ab0; box-shadow: none; border: 1px solid var(--border-color); }
+    /* 未繳：#F37748（純色） */
+    .status-unsubmitted { background-color: #F37748; }
+    /* 訂正：#FFD6C0（純色無漸層，搭配深色文字） */
+    .status-correcting { background-color: #FFD6C0; color: #5a2e19; }
+    .status-correcting .status-sub { background: rgba(0,0,0,0.08); color: #5a2e19; }
+    /* 完成：輕量白灰色調 */
+    .status-done { background-color: #eef5f9; color: #7f9ab0; box-shadow: none; border: 1px solid var(--border-color); }
     .status-done .status-sub { color: #7f9ab0; background: #dce7ee; }
     
     /* 免繳/非指定對象樣式 */
-    .status-na { background: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; box-shadow: none; cursor: not-allowed; }
+    .status-na { background-color: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; box-shadow: none; cursor: not-allowed; }
     .status-na .status-sub { color: #cbd5e1; background: transparent; }
 
     .empty-state-box {
@@ -246,8 +251,8 @@
     .data-table th { background-color: #f4f8fa; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
     
     .btn-action-group { display: flex; gap: 6px; }
-    .btn-correct { padding: 5px 12px; background: #fdf8e1; color: #8f7400; border: 1px solid #f7ea9b; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-correct:hover { background: #fcf1bf; }
+    .btn-correct { padding: 5px 12px; background: #FFD6C0; color: #5a2e19; border: 1px solid #f2bda2; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+    .btn-correct:hover { background: #fcc2a3; }
     .btn-verify { padding: 5px 12px; background: #eef8fc; color: var(--color-primary); border: 1px solid var(--color-secondary); border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
     .btn-verify:hover { background: #d8edf6; }
     .btn-revert-unsub { padding: 5px 12px; background: #fdf2f2; color: var(--color-red); border: 1px solid #f5babb; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
@@ -258,7 +263,7 @@
     .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
     .checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
 
-    /* A4 列印格式：嚴格每頁 4 個卡片滿版 */
+    /* A4 列印格式：每頁 4 個卡片滿版 */
     @media print {
       html, body {
         width: 210mm;
@@ -307,7 +312,7 @@
       .status-tag-print { font-weight: bold; margin-left: 4px; }
     }
 
-    /* Modal 彈出視窗質感設計 */
+    /* Modal 彈出視窗 */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(28, 45, 55, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: white; padding: 24px; border-radius: 16px; width: 560px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
     .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--color-primary); }
@@ -527,7 +532,7 @@
     let showDoneItems = false;
 
     function init() {
-      const saved = localStorage.getItem("tracker_data_v5");
+      const saved = localStorage.getItem("tracker_data_v6");
       if (saved) {
         try {
           state = JSON.parse(saved);
@@ -548,7 +553,7 @@
 
     function saveData() {
       sortStudentsByNumber();
-      localStorage.setItem("tracker_data_v5", JSON.stringify(state));
+      localStorage.setItem("tracker_data_v6", JSON.stringify(state));
       if (!GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) {
         fetch(GAS_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(state) });
       }
@@ -795,7 +800,7 @@
                 <button class="btn-correct" onclick="setTaskStatus('${studentName}', ${task.id}, 'correcting')">標記(訂正)</button>
                 <button class="btn-verify" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">核銷(完成)</button>`;
             } else if (status === 'correcting') {
-              statusText = '<span style="color:#b08f00;font-weight:700;">訂正</span>';
+              statusText = '<span style="color:#8a4321;font-weight:700;">訂正</span>';
               actionButtons = `
                 <button class="btn-revert-unsub" onclick="setTaskStatus('${studentName}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
                 <button class="btn-verify" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">核銷(完成)</button>`;
@@ -1048,10 +1053,11 @@
             for (let cat in catMap) {
               cardContentHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
               catMap[cat].forEach(item => {
-                const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#F37748;">(未繳)</span>' : '<span class="status-tag-print" style="color:#b08f00;">(訂正)</span>';
+                const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#F37748;">(未繳)</span>' : '<span class="status-tag-print" style="color:#8a4321;">(訂正)</span>';
                 const dateStr = item.date ? `[${item.date}] ` : '';
                 cardContentHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
               });
+              catMap[cat].forEach = function(){}; // clean
               cardContentHtml += `</ul>`;
             }
 
