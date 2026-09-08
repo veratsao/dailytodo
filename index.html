@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>學生作業進度追蹤管理系統</title>
+  <title>學生作業進度追蹤管理系統 (UI/UX 強化版)</title>
   <style>
     :root {
       --bg-color: #f4f8fa;
@@ -12,7 +12,7 @@
       /* 色彩主題 */
       --color-primary: #067BC2;     /* 主視覺蔚藍 */
       --color-secondary: #84BCDA;   /* 次要天空藍 */
-      --color-yellow: #FFD6C0;      /* 訂正粉蜜桃色（純色） */
+      --color-yellow: #FFD6C0;      /* 訂正粉蜜桃色 */
       --color-orange: #F37748;      /* 未繳珊瑚橙 */
       --color-red: #D56062;         /* 刪除/重置珊瑚紅 */
       
@@ -84,22 +84,60 @@
       flex-shrink: 0;
     }
 
+    /* 🔥 UX 亮點 3：科目快速篩選列 (Category Filter Chips Bar) */
+    .category-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      overflow-x: auto;
+      padding: 4px 2px;
+      white-space: nowrap;
+    }
+
+    .cat-chip {
+      padding: 6px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    .cat-chip:hover { background: #eef5f9; color: var(--color-primary); }
+    .cat-chip.active {
+      background: var(--color-primary);
+      color: white;
+      border-color: var(--color-primary);
+      box-shadow: 0 2px 6px rgba(6, 123, 194, 0.25);
+    }
+    .cat-chip-add {
+      border: 1px dashed var(--color-secondary);
+      color: var(--color-primary);
+      background: #eef8fc;
+    }
+    .cat-chip-add:hover { background: #d8edf6; }
+
     /* 頁面切換容器 */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* 平板橫向看板：設定 flex-start 避免單一任務被拉寬 */
+    /* 平板橫向看板 */
     .task-board { 
       display: flex; 
       gap: 12px; 
       align-items: flex-start; 
       justify-content: flex-start;
-      height: calc(100vh - 80px);
+      height: calc(100vh - 140px);
       width: 100%;
       overflow-x: auto;
     }
 
-    /* 任務欄位：固定寬度範圍，不隨數量少而膨脹 */
+    /* 任務欄位 */
     .task-column { 
       background: var(--card-bg); 
       width: 320px;
@@ -173,16 +211,12 @@
     .student-block .student-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; letter-spacing: -0.3px; }
     .student-block .status-sub { font-size: 0.7rem; font-weight: 700; opacity: 0.95; margin-left: 4px; flex-shrink: 0; background: rgba(0,0,0,0.12); padding: 1px 4px; border-radius: 3px; }
     
-    /* 未繳：#F37748（純色） */
+    /* 未繳 / 訂正 / 完成 / 免繳樣式 */
     .status-unsubmitted { background-color: #F37748; }
-    /* 訂正：#FFD6C0（純色無漸層，搭配深色文字） */
     .status-correcting { background-color: #FFD6C0; color: #5a2e19; }
     .status-correcting .status-sub { background: rgba(0,0,0,0.08); color: #5a2e19; }
-    /* 完成：輕量白灰色調 */
     .status-done { background-color: #eef5f9; color: #7f9ab0; box-shadow: none; border: 1px solid var(--border-color); }
     .status-done .status-sub { color: #7f9ab0; background: #dce7ee; }
-    
-    /* 免繳/非指定對象樣式 */
     .status-na { background-color: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; box-shadow: none; cursor: not-allowed; }
     .status-na .status-sub { color: #cbd5e1; background: transparent; }
 
@@ -191,12 +225,12 @@
       background: var(--card-bg);
       border: 2px dashed var(--border-color);
       border-radius: var(--radius);
-      padding: 30px;
+      padding: 40px;
       text-align: center;
       color: var(--text-muted);
     }
 
-    /* 未完成統計與核銷控制區域 */
+    /* 🔥 UX 亮點 1：未完成統計與核銷控制區域 */
     .cumulative-controls {
       display: flex;
       flex-direction: column;
@@ -225,7 +259,7 @@
     }
 
     .filter-group label {
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       font-weight: 600;
       color: var(--text-main);
     }
@@ -234,77 +268,63 @@
       padding: 6px 12px;
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       outline: none;
     }
 
     .student-tags-bar { 
-      display: flex; gap: 8px; flex-wrap: wrap;
+      display: flex; gap: 6px; flex-wrap: wrap;
     }
 
-    .tag-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border-color); background: white; cursor: pointer; font-size: 0.88rem; color: var(--text-muted); transition: 0.2s; }
+    .tag-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: white; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: 0.2s; }
     .tag-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
     .tag-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); font-weight: 600; }
 
+    /* 表格與直觀核銷膠囊 */
     .data-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
-    .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); }
+    .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
     .data-table th { background-color: #f4f8fa; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
     
-    .btn-action-group { display: flex; gap: 6px; }
-    .btn-correct { padding: 5px 12px; background: #FFD6C0; color: #5a2e19; border: 1px solid #f2bda2; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-correct:hover { background: #fcc2a3; }
-    .btn-verify { padding: 5px 12px; background: #eef8fc; color: var(--color-primary); border: 1px solid var(--color-secondary); border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-verify:hover { background: #d8edf6; }
-    .btn-revert-unsub { padding: 5px 12px; background: #fdf2f2; color: var(--color-red); border: 1px solid #f5babb; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
-    .btn-revert-unsub:hover { background: #fbe5e6; }
+    /* 直觀動態狀態膠囊 (Status Pill) */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    .status-pill:hover { transform: scale(1.05); }
+    .status-pill.pill-unsubmitted { background-color: #F37748; color: white; }
+    .status-pill.pill-correcting { background-color: #FFD6C0; color: #5a2e19; border: 1px solid #f2bda2; }
+    .status-pill.pill-done { background-color: #eef5f9; color: var(--color-primary); border: 1px solid var(--color-secondary); }
+
+    .btn-action-group { display: flex; gap: 6px; align-items: center; }
+    .btn-verify-quick { padding: 5px 12px; background: #eef8fc; color: var(--color-primary); border: 1px solid var(--color-secondary); border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.82rem; transition: 0.2s; }
+    .btn-verify-quick:hover { background: #d8edf6; }
 
     /* 列印設定頁面 */
     .print-selector { background: var(--card-bg); padding: 20px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
     .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
     .checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
 
-    /* A4 列印格式：每頁 4 個卡片滿版 */
+    /* A4 列印格式 */
     @media print {
-      html, body {
-        width: 210mm;
-        background: white;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-      
+      html, body { width: 210mm; background: white; padding: 0 !important; margin: 0 !important; }
       .no-print { display: none !important; }
       .print-only { display: block !important; }
-      
-      @page { 
-        size: A4 portrait; 
-        margin: 5mm; 
-      }
-
+      @page { size: A4 portrait; margin: 5mm; }
       .print-page { 
-        display: grid !important; 
-        grid-template-columns: 1fr 1fr !important; 
-        grid-template-rows: 1fr 1fr !important; 
-        gap: 5mm !important; 
-        width: 200mm !important; 
-        height: 285mm !important; 
-        box-sizing: border-box !important;
-        page-break-after: always !important;
-        break-after: page !important;
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-        overflow: hidden !important;
+        display: grid !important; grid-template-columns: 1fr 1fr !important; grid-template-rows: 1fr 1fr !important; 
+        gap: 5mm !important; width: 200mm !important; height: 285mm !important; box-sizing: border-box !important;
+        page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; break-inside: avoid !important; overflow: hidden !important;
       }
-
-      .print-card { 
-        border: 2px solid #000; 
-        padding: 6mm 8mm; 
-        box-sizing: border-box; 
-        height: 138mm !important; 
-        overflow: hidden; 
-        display: flex;
-        flex-direction: column;
-      }
-
+      .print-card { border: 2px solid #000; padding: 6mm 8mm; box-sizing: border-box; height: 138mm !important; overflow: hidden; display: flex; flex-direction: column; }
       .print-card h3 { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; font-size: 1.3rem; font-weight: bold; }
       .print-cat { font-weight: bold; background: #e5e7eb; padding: 2px 6px; font-size: 1rem; margin-top: 5px; border-radius: 4px; display: inline-block; }
       .print-list { list-style: square; padding-left: 20px; font-size: 0.95rem; margin-top: 3px; line-height: 1.35; }
@@ -314,7 +334,7 @@
 
     /* Modal 彈出視窗 */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(28, 45, 55, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 560px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 580px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
     .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--color-primary); }
     .form-group { margin-bottom: 14px; }
     .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-main); }
@@ -325,12 +345,12 @@
     
     .student-edit-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .student-edit-table th { font-size:0.8rem; text-align:left; padding:6px; color:var(--text-muted); background:#f4f8fa; }
-    .student-edit-table td { padding: 8px 4px; border-bottom: 1px solid var(--border-color); }
+    .student-edit-table td { padding: 8px 4px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
   </style>
 </head>
 <body>
 
-  <!-- 頂部列 -->
+  <!-- 頂部導覽列 -->
   <header class="no-print">
     <div class="nav-header-row">
       <button class="active" onclick="switchTab('daily', this)">每日作業狀態</button>
@@ -347,6 +367,9 @@
     </div>
   </header>
 
+  <!-- 🔥 UX 亮點 3：全域「科目快速過濾列 (Filter Chips Bar)」 -->
+  <div class="category-filter-bar no-print" id="category-filter-bar"></div>
+
   <!-- 1. 每日作業狀態 -->
   <main id="daily-view" class="tab-content active no-print">
     <div class="task-board" id="task-board"></div>
@@ -357,15 +380,15 @@
     <div class="cumulative-controls">
       <div class="cumulative-filter-row">
         <div class="filter-group">
-          <label>快速選取單項作業：</label>
+          <label>過濾特定任務：</label>
           <select id="task-filter-select" onchange="filterByTask(this.value)">
             <option value="ALL">顯示全部作業項目</option>
           </select>
           <label style="margin-left: 10px; cursor: pointer; font-weight: normal; font-size: 0.88rem; display: flex; align-items: center; gap: 4px;">
-            <input type="checkbox" id="show-done-chk" onchange="toggleShowDone(this.checked)"> 顯示已完成項目 (可用於誤按復原)
+            <input type="checkbox" id="show-done-chk" onchange="toggleShowDone(this.checked)"> 顯示已完成項目 (復原/檢查)
           </label>
         </div>
-        <button style="padding:6px 12px; background:#fdf2f2; color:var(--color-red); border:1px solid #f5babb; border-radius:6px; cursor:pointer; font-weight:600;" onclick="openManageTasksModal()">🗑️ 管理/刪除歷史任務</button>
+        <button style="padding:6px 12px; background:#fdf2f2; color:var(--color-red); border:1px solid #f5babb; border-radius:6px; cursor:pointer; font-weight:600;" onclick="openManageTasksModal()">⚙️ 管理/修改歷史任務</button>
       </div>
       <div class="student-tags-bar" id="student-tags"></div>
     </div>
@@ -376,9 +399,9 @@
           <th>學生姓名</th>
           <th>作業日期</th>
           <th>科目分類</th>
-          <th>作業名稱</th>
-          <th>目前狀態</th>
-          <th>核銷與狀態變更</th>
+          <th>作業名稱 (點擊✏️可編修)</th>
+          <th>點擊膠囊切換狀態 (未繳 ➔ 訂正 ➔ 完成)</th>
+          <th>快速核銷</th>
         </tr>
       </thead>
       <tbody id="cumulative-list"></tbody>
@@ -421,7 +444,7 @@
       </div>
       <div class="form-group">
         <label>輸入作業名稱：</label>
-        <input type="text" id="task-name-input" placeholder="例如：加強組抽查作業 P.10">
+        <input type="text" id="task-name-input" placeholder="例如：數評 L3 卷、國語習作 P.10">
       </div>
       <p style="font-size:0.8rem; color:var(--text-muted);">※ 若選擇指定分組，只有屬於該分組的學生會派發此作業。</p>
       <div class="modal-btns">
@@ -431,17 +454,25 @@
     </div>
   </div>
 
-  <!-- 管理/刪除歷史任務 Modal -->
+  <!-- 🔥 UX 亮點 2：管理/修改歷史任務 Modal -->
   <div class="modal" id="manage-tasks-modal">
     <div class="modal-content">
-      <h3>管理與刪除歷史作業任務</h3>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">點擊刪除按鈕即可清理過去過期或無效的作業任務：</p>
+      <h3>管理與編修歷史作業任務</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">可以直接在此修訂過往作業的名稱與日期，或刪除無效任務：</p>
       <hr style="margin: 12px 0; border:0; border-top:1px solid var(--border-color);">
       <table class="student-edit-table">
+        <thead>
+          <tr>
+            <th style="width:25%;">日期</th>
+            <th style="width:20%;">科目</th>
+            <th style="width:40%;">作業名稱</th>
+            <th style="width:15%;">操作</th>
+          </tr>
+        </thead>
         <tbody id="manage-tasks-list"></tbody>
       </table>
       <div class="modal-btns">
-        <button onclick="closeManageTasksModal()">關閉</button>
+        <button onclick="closeManageTasksModal()">完成並關閉</button>
       </div>
     </div>
   </div>
@@ -453,7 +484,7 @@
       <div class="form-group" style="margin-top:10px;">
         <label>新增科目分類：</label>
         <div style="display:flex; gap:8px;">
-          <input type="text" id="new-category-input" placeholder="例如：本土語、藝術">
+          <input type="text" id="new-category-input" placeholder="例如：數評、本土語、藝術">
           <button style="padding:6px 12px; background:var(--color-primary); color:white; border:none; border-radius:8px; cursor:pointer;" onclick="addCategory()">新增</button>
         </div>
       </div>
@@ -492,7 +523,7 @@
         <button onclick="closeStudentModal()">關閉</button>
       </div>
     </div>
-  </main>
+  </div>
 
   <script>
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
@@ -506,7 +537,7 @@
     }
 
     const defaultState = {
-      categories: ["國語", "數學", "英文", "社會", "自然", "綜合"],
+      categories: ["國語", "數學", "數評", "英文", "社會", "自然"],
       students: [
         { name: "01 張小明", groups: ["A組"] },
         { name: "02 李小華", groups: ["B組", "加強組"] },
@@ -516,7 +547,7 @@
       ],
       tasks: [
         { id: 1, date: getTodayString(), category: "國語", targetGroup: "ALL", name: "國語習作 L3" },
-        { id: 2, date: getTodayString(), category: "數學", targetGroup: "加強組", name: "數學習作 P.15" }
+        { id: 2, date: getTodayString(), category: "數評", targetGroup: "加強組", name: "數評 L2 測驗卷" }
       ],
       records: {
         "01 張小明_1": "unsubmitted",
@@ -529,6 +560,7 @@
     let state = JSON.parse(JSON.stringify(defaultState));
     let selectedStudentFilter = 'ALL';
     let selectedTaskFilter = 'ALL';
+    let selectedCategoryFilter = 'ALL'; // 全域科目過濾器
     let showDoneItems = false;
 
     function init() {
@@ -544,6 +576,7 @@
         }
       }
       sortStudentsByNumber();
+      renderCategoryFilterBar();
       renderDailyBoard();
       renderTaskFilterOptions();
       renderStudentTags();
@@ -569,11 +602,44 @@
           const numA = matchA ? parseInt(matchA[0], 10) : Infinity;
           const numB = matchB ? parseInt(matchB[0], 10) : Infinity;
 
-          if (numA !== numB) {
-            return numA - numB;
-          }
+          if (numA !== numB) return numA - numB;
           return nameA.localeCompare(nameB, 'zh-Hant');
         });
+      }
+    }
+
+    /* 🔥 UX 亮點 3：科目過濾 Chips 渲染與控制 */
+    function renderCategoryFilterBar() {
+      const bar = document.getElementById('category-filter-bar');
+      if (!bar) return;
+
+      let html = `<button class="cat-chip ${selectedCategoryFilter === 'ALL' ? 'active' : ''}" onclick="filterByCategory('ALL')">✨ 全部科目</button>`;
+      
+      state.categories.forEach(cat => {
+        const active = selectedCategoryFilter === cat ? 'active' : '';
+        html += `<button class="cat-chip ${active}" onclick="filterByCategory('${cat}')">${cat}</button>`;
+      });
+
+      html += `<button class="cat-chip cat-chip-add" onclick="quickAddCategory()">+ 新增科目</button>`;
+      bar.innerHTML = html;
+    }
+
+    function filterByCategory(cat) {
+      selectedCategoryFilter = cat;
+      renderCategoryFilterBar();
+      renderDailyBoard();
+      renderCumulative();
+    }
+
+    function quickAddCategory() {
+      const newCat = prompt("請輸入新增的科目名稱（例如：數評、聽寫）：");
+      if (newCat && newCat.trim()) {
+        const trimmed = newCat.trim();
+        if (!state.categories.includes(trimmed)) {
+          state.categories.push(trimmed);
+          saveData();
+          filterByCategory(trimmed);
+        }
       }
     }
 
@@ -594,19 +660,17 @@
     }
 
     function resetAllData() {
-      const confirmFirst = confirm("警告：您確定要重置系統資料嗎？\n這將會【完全清空】所有任務、學生名單與紀錄，方便新班級使用。");
-      if (confirmFirst) {
-        const confirmSecond = confirm("請再次確認：所有學生與任務資料將被完全刪除且無法復原！是否繼續？");
-        if (confirmSecond) {
+      if (confirm("警告：確定要重置系統資料嗎？這將會清空所有任務與紀錄。")) {
+        if (confirm("再次確認：資料刪除後無法復原！是否繼續？")) {
           state = {
-            categories: state.categories && state.categories.length > 0 ? state.categories : ["國語", "數學", "英文", "社會", "自然", "綜合"],
+            categories: ["國語", "數學", "數評", "英文", "社會", "自然"],
             students: [],
             tasks: [],
             records: {}
           };
           saveData();
           init();
-          alert("所有任務與學生名單已成功清空！");
+          alert("資料已完全清空！");
         }
       }
     }
@@ -631,18 +695,25 @@
       }
     }
 
+    /* 渲染每日看板 (含科目過濾連動) */
     function renderDailyBoard() {
       const board = document.getElementById('task-board');
       board.innerHTML = '';
 
       const todayStr = getTodayString();
-      const todayTasks = state.tasks.filter(t => t.date === todayStr);
+      // 結合日期與科目篩選
+      const todayTasks = state.tasks.filter(t => {
+        const isToday = t.date === todayStr;
+        const matchCat = selectedCategoryFilter === 'ALL' || t.category === selectedCategoryFilter;
+        return isToday && matchCat;
+      });
 
       if (todayTasks.length === 0) {
+        const catMsg = selectedCategoryFilter !== 'ALL' ? `「${selectedCategoryFilter}」` : '';
         board.innerHTML = `
           <div class="empty-state-box">
-            <h3>今日 (${todayStr}) 尚無作業任務</h3>
-            <p style="margin-top:8px;">請點擊上方「+ 新增作業欄位」建立今日作業。<br>過往未完成的作業可至「未完成統計與核銷」或「列印欠繳清單」查看與核銷。</p>
+            <h3>今日 (${todayStr}) 尚無 ${catMsg} 作業任務</h3>
+            <p style="margin-top:8px;">請點擊上方「+ 新增作業欄位」建立作業，或點擊頂部「✨ 全部科目」查看其他作業。</p>
           </div>`;
         return;
       }
@@ -702,11 +773,12 @@
       });
     }
 
+    /* 🔥 UX 亮點 2：行內快速修改任務名稱 */
     function editTaskName(taskId) {
       const task = state.tasks.find(t => t.id === taskId);
       if (!task) return;
       
-      const newName = prompt("請輸入新的作業名稱：", task.name);
+      const newName = prompt("修訂作業名稱：", task.name);
       if (newName !== null) {
         const trimmed = newName.trim();
         if (trimmed) {
@@ -736,6 +808,9 @@
       const select = document.getElementById('task-filter-select');
       select.innerHTML = '<option value="ALL">顯示全部作業項目</option>';
       state.tasks.forEach(task => {
+        // 連動科目過濾
+        if (selectedCategoryFilter !== 'ALL' && task.category !== selectedCategoryFilter) return;
+
         const selected = selectedTaskFilter == task.id ? 'selected' : '';
         const groupInfo = (task.targetGroup && task.targetGroup !== 'ALL') ? ` (${task.targetGroup})` : '';
         select.innerHTML += `<option value="${task.id}" ${selected}>[${task.date}] ${task.category} - ${task.name}${groupInfo}</option>`;
@@ -768,6 +843,7 @@
       renderCumulative();
     }
 
+    /* 🔥 UX 亮點 1 & 3：未完成統計與直觀膠囊核銷 */
     function renderCumulative() {
       const list = document.getElementById('cumulative-list');
       list.innerHTML = '';
@@ -783,6 +859,8 @@
         if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== studentName) return;
 
         state.tasks.forEach(task => {
+          // 科目與任務雙重過濾
+          if (selectedCategoryFilter !== 'ALL' && task.category !== selectedCategoryFilter) return;
           if (selectedTaskFilter !== 'ALL' && selectedTaskFilter != task.id) return;
           if (!isStudentAssignedToTask(studentObj, task)) return;
 
@@ -791,25 +869,11 @@
 
           if (status === 'unsubmitted' || status === 'correcting' || (showDoneItems && status === 'done')) {
             count++;
-            let statusText = '';
-            let actionButtons = '';
-
-            if (status === 'unsubmitted') {
-              statusText = '<span style="color:var(--color-orange);font-weight:700;">未繳</span>';
-              actionButtons = `
-                <button class="btn-correct" onclick="setTaskStatus('${studentName}', ${task.id}, 'correcting')">標記(訂正)</button>
-                <button class="btn-verify" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">核銷(完成)</button>`;
-            } else if (status === 'correcting') {
-              statusText = '<span style="color:#8a4321;font-weight:700;">訂正</span>';
-              actionButtons = `
-                <button class="btn-revert-unsub" onclick="setTaskStatus('${studentName}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
-                <button class="btn-verify" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">核銷(完成)</button>`;
-            } else if (status === 'done') {
-              statusText = '<span style="color:var(--color-primary);font-weight:700;">已完成</span>';
-              actionButtons = `
-                <button class="btn-revert-unsub" onclick="setTaskStatus('${studentName}', ${task.id}, 'unsubmitted')">復原(未繳)</button>
-                <button class="btn-correct" onclick="setTaskStatus('${studentName}', ${task.id}, 'correcting')">復原(訂正)</button>`;
-            }
+            
+            let pillClass = 'pill-unsubmitted';
+            let pillText = '未繳 (點擊切換)';
+            if (status === 'correcting') { pillClass = 'pill-correcting'; pillText = '訂正中 (點擊切換)'; }
+            else if (status === 'done') { pillClass = 'pill-done'; pillText = '已完成 (點擊切換)'; }
 
             const targetGroupTag = (task.targetGroup && task.targetGroup !== 'ALL') ? `<span class="task-target-tag" style="margin-left:4px;">🎯 ${task.targetGroup}</span>` : '';
 
@@ -817,18 +881,39 @@
               <tr>
                 <td><b>${studentName}</b></td>
                 <td>${task.date || '-'}</td>
-                <td>${task.category}</td>
-                <td>${task.name} ${targetGroupTag}</td>
-                <td>${statusText}</td>
-                <td><div class="btn-action-group">${actionButtons}</div></td>
+                <td><span class="task-category-tag">${task.category}</span></td>
+                <td>
+                  <b>${task.name}</b> ${targetGroupTag}
+                  <button class="btn-edit-title" title="修改作業名稱" onclick="editTaskName(${task.id})">✏️</button>
+                </td>
+                <td>
+                  <div class="status-pill ${pillClass}" onclick="cycleCumulativeStatus('${studentName}', ${task.id})">
+                    ${pillText}
+                  </div>
+                </td>
+                <td>
+                  <button class="btn-verify-quick" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">一鍵完成</button>
+                </td>
               </tr>`;
           }
         });
       });
 
       if (count === 0) {
-        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-primary); padding:20px; font-weight:600;">🎉 所選條件下目前沒有需處理的作業項目！</td></tr>`;
+        const catText = selectedCategoryFilter !== 'ALL' ? `「${selectedCategoryFilter}」` : '';
+        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-primary); padding:20px; font-weight:600;">🎉 所選條件下 ${catText} 目前沒有需處理的作業項目！</td></tr>`;
       }
+    }
+
+    function cycleCumulativeStatus(studentName, taskId) {
+      const key = `${studentName}_${taskId}`;
+      const current = state.records[key] || 'unsubmitted';
+      
+      let next = 'correcting';
+      if (current === 'correcting') next = 'done';
+      else if (current === 'done') next = 'unsubmitted';
+      
+      setTaskStatus(studentName, taskId, next);
     }
 
     function setTaskStatus(studentName, taskId, newStatus) {
@@ -838,6 +923,7 @@
       renderDailyBoard();
     }
 
+    /* 🔥 UX 亮點 2：管理/修改歷史任務列表 Modal */
     function openManageTasksModal() {
       renderManageTasksList();
       document.getElementById('manage-tasks-modal').style.display = 'flex';
@@ -854,21 +940,36 @@
       const tbody = document.getElementById('manage-tasks-list');
       tbody.innerHTML = '';
       if (state.tasks.length === 0) {
-        tbody.innerHTML = `<tr><td style="text-align:center; color:var(--text-muted); padding:10px;">目前尚無任何任務項目</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:10px;">目前尚無任何任務項目</td></tr>`;
         return;
       }
       state.tasks.forEach(task => {
-        const groupInfo = (task.targetGroup && task.targetGroup !== 'ALL') ? ` [對象:${task.targetGroup}]` : '';
         tbody.innerHTML += `
           <tr>
+            <td><input type="date" value="${task.date}" style="padding:4px; font-size:0.8rem; border:1px solid var(--border-color); border-radius:4px; width:100%;" onchange="updateTaskDateInModal(${task.id}, this.value)"></td>
+            <td><span class="task-category-tag">${task.category}</span></td>
+            <td><input type="text" value="${task.name}" style="padding:4px; font-size:0.85rem; border:1px solid var(--border-color); border-radius:4px; width:95%;" onchange="updateTaskNameInModal(${task.id}, this.value)"></td>
             <td>
-              <b>[${task.date}] ${task.category}</b> - ${task.name} <span style="color:var(--text-muted); font-size:0.8rem;">${groupInfo}</span>
-            </td>
-            <td style="width:70px; text-align:right;">
               <button style="color:var(--color-red); border:1px solid #f5babb; background:#fdf2f2; padding:4px 8px; border-radius:6px; cursor:pointer;" onclick="deleteTaskInModal(${task.id})">刪除</button>
             </td>
           </tr>`;
       });
+    }
+
+    function updateTaskNameInModal(taskId, newName) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (task && newName.trim()) {
+        task.name = newName.trim();
+        saveData();
+      }
+    }
+
+    function updateTaskDateInModal(taskId, newDate) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (task && newDate) {
+        task.date = newDate;
+        saveData();
+      }
     }
 
     function deleteTaskInModal(taskId) {
@@ -894,6 +995,7 @@
 
     function closeCategoryModal() {
       document.getElementById('category-modal').style.display = 'none';
+      renderCategoryFilterBar();
     }
 
     function renderCategoryList() {
@@ -916,6 +1018,7 @@
         input.value = '';
         saveData();
         renderCategoryList();
+        renderCategoryFilterBar();
       }
     }
 
@@ -924,6 +1027,7 @@
       if (newVal) {
         state.categories[index] = newVal;
         saveData();
+        renderCategoryFilterBar();
       }
     }
 
@@ -932,6 +1036,7 @@
         state.categories.splice(index, 1);
         saveData();
         renderCategoryList();
+        renderCategoryFilterBar();
       }
     }
 
@@ -947,7 +1052,8 @@
       const catSelect = document.getElementById('task-category-select');
       catSelect.innerHTML = '';
       state.categories.forEach(cat => {
-        catSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+        const selected = (selectedCategoryFilter === cat) ? 'selected' : '';
+        catSelect.innerHTML += `<option value="${cat}" ${selected}>${cat}</option>`;
       });
 
       const groupSelect = document.getElementById('task-target-group-select');
@@ -1002,6 +1108,7 @@
       document.querySelectorAll('.print-chk').forEach(chk => chk.checked = select);
     }
 
+    /* 🔥 安全的 A4 列印繪製 logic */
     function triggerPrint() {
       const selectedStudents = Array.from(document.querySelectorAll('.print-chk:checked')).map(cb => cb.value);
       if (selectedStudents.length === 0) return alert("請至少選取一位學生！");
@@ -1179,6 +1286,7 @@
         });
     }
 
+    // 系統初始化執行
     init();
   </script>
 </body>
