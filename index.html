@@ -35,14 +35,19 @@
     }
 
     async function gsSave(payload) {
-      const res = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
-      return result;
+      try {
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.error) throw new Error(result.error);
+        return result;
+      } catch (e) {
+        console.error("gsSave Error:", e);
+        throw e;
+      }
     }
 
     // ─── Constants & Styles ───────────────────────────────────────────────────────
@@ -1086,16 +1091,14 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // TAB 6: 表格列印 (修復：個別選擇學生與固定 1/4 A4 尺寸)
+    // TAB 6: 表格列印 (修改：設定每頁 12 個項目、超過自動生成第二張)
     // ═══════════════════════════════════════════════════════════════
     function PrintTab({ students, assignments, progress, engProgress, categories, groups }) {
       const [printType, setPrintType] = useState("overview");
-      // 改為陣列，紀錄選中的學生座號
       const [selectedStudents, setSelectedStudents] = useState([]);
 
       const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
 
-      // 快速開關學生選擇
       const toggleStudent = (sn) => {
         setSelectedStudents(prev => 
           prev.includes(sn) ? prev.filter(x => x !== sn) : [...prev, sn]
@@ -1137,10 +1140,8 @@
         } else if (printType === "unpaid") {
           if (selectedStudents.length === 0) return alert("請至少選擇一位學生！");
 
-          // 收集所有要列印的小卡 (每張為 A4 1/4)
           const allCardsHtml = [];
 
-          // 依序處理選中的學生
           const sortedSelected = students
             .filter(s => selectedStudents.includes(s.number))
             .sort((a,b) => a.number - b.number);
@@ -1151,8 +1152,8 @@
               return isAssigned && getStatus(a.id, stObj.number) < 2;
             });
 
-            // 1/4 A4 卡片固定尺寸能放下的最多筆數 (建議 6~7 筆，以防字體超出)
-            const ITEMS_PER_CARD = 6;
+            // 設定每個 1/4 A4 卡片最多容納 12 個欠繳項目
+            const ITEMS_PER_CARD = 12;
             const totalPages = Math.ceil(unpaidList.length / ITEMS_PER_CARD) || 1;
 
             for (let page = 0; page < totalPages; page++) {
@@ -1160,35 +1161,34 @@
 
               const rows = pageItems.map(a => `
                 <tr>
-                  <td style="padding:4px 6px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;">${a.category}</td>
-                  <td style="padding:4px 6px;border:1px solid #9ca3af;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;">${a.name}</td>
-                  <td style="padding:4px 6px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;font-weight:bold;color:${getStatus(a.id, stObj.number)===1?'#ea580c':'#ef4444'}">${STATUS[getStatus(a.id, stObj.number)]}</td>
+                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;">${a.category}</td>
+                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;">${a.name}</td>
+                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;font-weight:bold;color:${getStatus(a.id, stObj.number)===1?'#ea580c':'#ef4444'}">${STATUS[getStatus(a.id, stObj.number)]}</td>
                 </tr>
               `).join("");
 
-              // 單張小卡：固定尺寸 105mm x 148mm (A6 / A4 1/4)
               const cardHtml = `
                 <div class="unpaid-card">
-                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #f97316;padding-bottom:4px;margin-bottom:8px;">
-                    <span style="font-size:14px;font-weight:800;color:#f97316;">📌 作業欠繳清單</span>
-                    <span style="font-size:10px;color:#6b7280;">第 ${page + 1}/${totalPages} 頁</span>
+                  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #f97316;padding-bottom:2px;margin-bottom:4px;">
+                    <span style="font-size:12px;font-weight:800;color:#f97316;">📌 作業欠繳清單</span>
+                    <span style="font-size:9px;color:#6b7280;">第 ${page + 1}/${totalPages} 頁</span>
                   </div>
-                  <div style="margin-bottom:8px;font-size:12px;display:flex;justify-content:space-between;">
+                  <div style="margin-bottom:4px;font-size:11px;display:flex;justify-content:space-between;">
                     <span><strong>座號：</strong>${stObj.number}號 &nbsp;<strong>姓名：</strong>${stObj.name}</span>
                   </div>
-                  <table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed;">
+                  <table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed;">
                     <thead>
                       <tr style="background:#fff7ed">
-                        <th style="padding:4px;border:1px solid #9ca3af;width:28%;">分類</th>
-                        <th style="padding:4px;border:1px solid #9ca3af;">作業名稱</th>
-                        <th style="padding:4px;border:1px solid #9ca3af;width:24%;">狀態</th>
+                        <th style="padding:2px;border:1px solid #9ca3af;width:28%;">分類</th>
+                        <th style="padding:2px;border:1px solid #9ca3af;">作業名稱</th>
+                        <th style="padding:2px;border:1px solid #9ca3af;width:24%;">狀態</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${rows || '<tr><td colspan="3" style="padding:15px;text-align:center;color:#4ade80;font-size:12px;">✅ 作業皆已完成！</td></tr>'}
+                      ${rows || '<tr><td colspan="3" style="padding:10px;text-align:center;color:#4ade80;font-size:11px;">✅ 作業皆已完成！</td></tr>'}
                     </tbody>
                   </table>
-                  <div style="position:absolute;bottom:8px;right:10px;font-size:9px;color:#9ca3af;">
+                  <div style="position:absolute;bottom:4px;right:8px;font-size:8px;color:#9ca3af;">
                     列印日期: ${today()}
                   </div>
                 </div>
@@ -1197,7 +1197,6 @@
             }
           });
 
-          // 將所有小卡以每頁 4 張組合成 2x2 的 A4 頁面
           let pagesHtml = "";
           for (let i = 0; i < allCardsHtml.length; i += 4) {
             const chunk = allCardsHtml.slice(i, i + 4);
@@ -1253,7 +1252,6 @@
                   align-items: center;
                   gap: 20px;
                 }
-                /* 每張 A4 列印頁 */
                 .a4-page {
                   width: 210mm;
                   height: 297mm;
@@ -1266,13 +1264,12 @@
                   page-break-after: always;
                   break-after: page;
                 }
-                /* 固定 1/4 A4 小卡 */
                 .unpaid-card {
                   width: 105mm;
                   height: 148.5mm;
                   box-sizing: border-box;
-                  padding: 10mm;
-                  border: 1px dashed #d1d5db; /* 裁切線提示 */
+                  padding: 6mm 8mm;
+                  border: 1px dashed #d1d5db;
                   position: relative;
                   overflow: hidden;
                   background: #fff;
@@ -1295,7 +1292,7 @@
             <body>
               <div class="no-print-bar">
                 <button class="print-btn" onclick="window.print()">🖨 開始列印</button>
-                <span style="font-size:13px;color:#6b7280;">提示：系統已將欠繳單設定為固定 1/4 A4 格式，列印時每頁最多包含 4 張小卡。</span>
+                <span style="font-size:13px;color:#6b7280;">提示：欠繳單設定為每張卡片顯示最多 12 個項目（1/4 A4 格式），超過 12 個將自動生成第 2 張。</span>
               </div>
               <div class="page-container">
                 ${content}
@@ -1315,7 +1312,7 @@
                 <input type="radio" name="printType" value="overview" checked={printType === "overview"} onChange={() => setPrintType("overview")} /> 全班作業進度總覽表
               </label>
               <label style={{ fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                <input type="radio" name="printType" value="unpaid" checked={printType === "unpaid"} onChange={() => setPrintType("unpaid")} /> 學生欠繳清單 (固定 1/4 A4 格式)
+                <input type="radio" name="printType" value="unpaid" checked={printType === "unpaid"} onChange={() => setPrintType("unpaid")} /> 學生欠繳清單 (每頁 12 筆 / 固定 1/4 A4 格式)
               </label>
             </div>
 
