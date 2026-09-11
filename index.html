@@ -1,1293 +1,1659 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>學生作業進度追蹤管理系統 (UI/UX 強化版)</title>
-  <style>
-    :root {
-      --bg-color: #f4f8fa;
-      --card-bg: #ffffff;
-      
-      /* 色彩主題 */
-      --color-primary: #067BC2;     /* 主視覺蔚藍 */
-      --color-secondary: #84BCDA;   /* 次要天空藍 */
-      --color-yellow: #FFD6C0;      /* 訂正粉蜜桃色 */
-      --color-orange: #F37748;      /* 未繳珊瑚橙 */
-      --color-red: #D56062;         /* 刪除/重置珊瑚紅 */
-      
-      --text-main: #1c2d37;
-      --text-muted: #5a7384;
-      --border-color: #d1e3ed;
-      --radius: 12px;
-      --shadow-sm: 0 1px 3px rgba(6, 123, 194, 0.08);
-      --shadow-md: 0 4px 10px rgba(6, 123, 194, 0.12);
+import { useState, useEffect } from "react";
+
+// ─── Google Apps Script API ───────────────────────────────────────────────────
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwdkquDzl1hlDPODmsmDh5moRgwPjJg3UTa3PgyqLAjQ2KtXDFzkMchmmRpQX6y0e8pvg/exec";
+
+async function gsLoad() {
+  const res = await fetch(`${GAS_URL}?action=load&_=${Date.now()}`, { cache: "no-store" });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function saveSheet(sheetName, data) {
+  const BATCH_SIZE = 25;
+  const arr = data || [];
+
+  // 第一步：先清空分頁（存空陣列）
+  await fetch(`${GAS_URL}?action=save&sheet=${sheetName}&data=${encodeURIComponent("[]")}&_=${Date.now()}`, { cache: "no-store" });
+
+  if (arr.length === 0) return;
+
+  // 第二步：如果只有一批，直接覆蓋寫入
+  if (arr.length <= BATCH_SIZE) {
+    const encoded = encodeURIComponent(JSON.stringify(arr));
+    await fetch(`${GAS_URL}?action=save&sheet=${sheetName}&data=${encoded}&_=${Date.now()}`, { cache: "no-store" });
+    return;
+  }
+
+  // 第三步：多批次時，先寫第一批（含標題），再 append 其餘批次
+  for (let i = 0; i < arr.length; i += BATCH_SIZE) {
+    const batch = arr.slice(i, i + BATCH_SIZE);
+    const action = i === 0 ? "save" : "append";
+    const encoded = encodeURIComponent(JSON.stringify(batch));
+    await fetch(`${GAS_URL}?action=${action}&sheet=${sheetName}&data=${encoded}&_=${Date.now()}`, { cache: "no-store" });
+  }
+}
+
+async function gsSave(payload) {
+  await saveSheet("students",         payload.students);
+  await saveSheet("assignments",      payload.assignments);
+  await saveSheet("categories",       payload.categories);
+  await saveSheet("todos",            payload.todos || []);
+  await saveSheet("summer_hw",        payload.summer_hw || []);
+  await saveSheet("summer_progress",  payload.summer_progress || []);
+  await saveSheet("progress",         payload.progress);
+  await saveSheet("english_progress", payload.english_progress);
+}
+
+// ─── Helper ──────────────────────────────────────────────────────────────────
+const today = () => new Date().toLocaleDateString("zh-TW");
+const STATUS = ["未繳", "訂正", "完成"];
+const STATUS_COLOR = ["#e5e7eb", "#fb923c", "#4ade80"];
+const TEACHER_PASSWORD = "800914";
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+const TABS = ["學生名單", "每日進度", "英文作業", "待辦事項", "暑假作業", "表格列印"];
+
+const DEFAULT_CATEGORIES = ["評量", "背書", "考卷", "其他"];
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN SCREEN
+// ═══════════════════════════════════════════════════════════════
+function LoginScreen({ students, onTeacherLogin, onParentLogin }) {
+  const [input, setInput] = useState("");
+  const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
+
+  const handleLogin = () => {
+    setError("");
+    if (input === TEACHER_PASSWORD) {
+      onTeacherLogin();
+      return;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text-main); padding: 12px; }
-
-    .no-print { display: block; }
-    .print-only { display: none; }
-
-    /* 頂部導覽列 */
-    header { 
-      display: flex;
-      align-items: center; 
-      background: var(--card-bg); 
-      padding: 8px 14px; 
-      border-radius: var(--radius); 
-      box-shadow: var(--shadow-md); 
-      margin-bottom: 12px; 
-      border: 1px solid var(--border-color);
-      overflow-x: auto;
-      white-space: nowrap;
+    // Try parent login: match student number or student password
+    const sn = Number(input);
+    const student = students.find(s => s.number === sn || s.password === input);
+    if (student) {
+      onParentLogin(student);
+      return;
     }
+    setError("密碼錯誤，請再試一次");
+  };
 
-    .nav-header-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-    }
-
-    .nav-header-row button { 
-      padding: 7px 12px; 
-      border: 1px solid transparent; 
-      border-radius: 8px; 
-      cursor: pointer; 
-      font-weight: 600; 
-      font-size: 0.85rem; 
-      transition: all 0.2s ease; 
-      background: #eef5f9; 
-      color: var(--text-muted); 
-      flex-shrink: 0;
-    }
-    
-    .nav-header-row button:hover { background: #e0edf4; color: var(--text-main); }
-    .nav-header-row button.active { background-color: var(--color-primary); color: white; box-shadow: 0 2px 5px rgba(6, 123, 194, 0.3); }
-    
-    .nav-header-row button.btn-primary { background-color: var(--color-primary); color: white; }
-    .nav-header-row button.btn-primary:hover { background-color: #0569a6; }
-    .nav-header-row button.btn-sync { background-color: #eef8fc; color: var(--color-primary); border-color: var(--color-secondary); }
-    .nav-header-row button.btn-sync:hover { background-color: #d8edf6; }
-    .nav-header-row button.btn-reset { background-color: #fdf2f2; color: var(--color-red); border-color: #f5babb; }
-    .nav-header-row button.btn-reset:hover { background-color: #fbe5e6; }
-    .nav-header-row button.btn-print { background-color: #fefcf3; color: #b08f00; border-color: #f7e692; }
-    .nav-header-row button.btn-print:hover { background-color: #fdf6d5; }
-
-    .nav-divider {
-      width: 1px;
-      height: 20px;
-      background-color: var(--border-color);
-      margin: 0 2px;
-      flex-shrink: 0;
-    }
-
-    /* 🔥 UX 亮點 3：科目快速篩選列 (Category Filter Chips Bar) */
-    .category-filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      overflow-x: auto;
-      padding: 4px 2px;
-      white-space: nowrap;
-    }
-
-    .cat-chip {
-      padding: 6px 16px;
-      border-radius: 20px;
-      border: 1px solid var(--border-color);
-      background: var(--card-bg);
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: all 0.2s ease;
-      box-shadow: var(--shadow-sm);
-    }
-    .cat-chip:hover { background: #eef5f9; color: var(--color-primary); }
-    .cat-chip.active {
-      background: var(--color-primary);
-      color: white;
-      border-color: var(--color-primary);
-      box-shadow: 0 2px 6px rgba(6, 123, 194, 0.25);
-    }
-    .cat-chip-add {
-      border: 1px dashed var(--color-secondary);
-      color: var(--color-primary);
-      background: #eef8fc;
-    }
-    .cat-chip-add:hover { background: #d8edf6; }
-
-    /* 頁面切換容器 */
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    /* 平板橫向看板 */
-    .task-board { 
-      display: flex; 
-      gap: 12px; 
-      align-items: flex-start; 
-      justify-content: flex-start;
-      height: calc(100vh - 140px);
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    /* 任務欄位 */
-    .task-column { 
-      background: var(--card-bg); 
-      width: 320px;
-      min-width: 280px;
-      max-width: 320px;
-      flex-shrink: 0;
-      max-height: 100%;
-      display: flex;
-      flex-direction: column;
-      border-radius: var(--radius); 
-      box-shadow: var(--shadow-md); 
-      border: 1px solid var(--border-color); 
-      padding: 10px; 
-      position: relative; 
-    }
-
-    .task-header { margin-bottom: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; padding-right: 20px; flex-shrink: 0; }
-    .task-meta { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; color: var(--text-muted); flex-wrap: wrap; }
-    .task-title-container { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 2px; }
-    .task-title { font-size: 0.9rem; font-weight: 700; color: var(--text-main); line-height: 1.2; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .btn-edit-title { background: none; border: none; color: var(--color-secondary); cursor: pointer; font-size: 0.8rem; padding: 1px 3px; border-radius: 4px; }
-    .btn-edit-title:hover { color: var(--color-primary); background: #eef8fc; }
-
-    .task-category-tag { 
-      font-size: 0.68rem; background: #e6f2f9; color: var(--color-primary); padding: 1px 6px; 
-      border-radius: 10px; font-weight: 600; display: inline-block; 
-    }
-    .task-target-tag { 
-      font-size: 0.68rem; background: #fdf8e1; color: #8f7400; padding: 1px 6px; 
-      border-radius: 10px; font-weight: 600; display: inline-block; border: 1px solid #f7ea9b;
-    }
-    .task-date-tag {
-      font-size: 0.68rem; background: #eef5f9; color: var(--text-muted); padding: 1px 6px;
-      border-radius: 10px; font-weight: 500; display: inline-block;
-    }
-    
-    .btn-delete-task { 
-      position: absolute; top: 8px; right: 8px; background: none; border: none; 
-      color: #b0c4d1; font-size: 1rem; cursor: pointer; border-radius: 4px; transition: 0.2s; 
-    }
-    .btn-delete-task:hover { color: var(--color-red); background: #fdf2f2; }
-
-    /* 2 欄網格學生方塊 */
-    .student-grid-2col { 
-      display: grid; 
-      grid-template-columns: repeat(2, 1fr); 
-      gap: 6px; 
-      overflow-y: auto; 
-      padding-right: 2px;
-    }
-
-    .student-block { 
-      padding: 6px 8px; 
-      border-radius: 6px; 
-      color: white; 
-      font-weight: 600; 
-      font-size: 0.82rem; 
-      display: flex; 
-      flex-direction: row; 
-      align-items: center; 
-      justify-content: space-between; 
-      cursor: pointer; 
-      user-select: none; 
-      transition: all 0.15s ease; 
-      box-shadow: var(--shadow-sm); 
-      text-align: left; 
-    }
-
-    .student-block:hover { transform: scale(1.02); }
-    .student-block:active { transform: scale(0.98); }
-    .student-block .student-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-grow: 1; letter-spacing: -0.3px; }
-    .student-block .status-sub { font-size: 0.7rem; font-weight: 700; opacity: 0.95; margin-left: 4px; flex-shrink: 0; background: rgba(0,0,0,0.12); padding: 1px 4px; border-radius: 3px; }
-    
-    /* 未繳 / 訂正 / 完成 / 免繳樣式 */
-    .status-unsubmitted { background-color: #F37748; }
-    .status-correcting { background-color: #FFD6C0; color: #5a2e19; }
-    .status-correcting .status-sub { background: rgba(0,0,0,0.08); color: #5a2e19; }
-    .status-done { background-color: #eef5f9; color: #7f9ab0; box-shadow: none; border: 1px solid var(--border-color); }
-    .status-done .status-sub { color: #7f9ab0; background: #dce7ee; }
-    .status-na { background-color: #f8fafc; color: #cbd5e1; border: 1px dashed #e2e8f0; box-shadow: none; cursor: not-allowed; }
-    .status-na .status-sub { color: #cbd5e1; background: transparent; }
-
-    .empty-state-box {
-      width: 100%;
-      background: var(--card-bg);
-      border: 2px dashed var(--border-color);
-      border-radius: var(--radius);
-      padding: 40px;
-      text-align: center;
-      color: var(--text-muted);
-    }
-
-    /* 🔥 UX 亮點 1：未完成統計與核銷控制區域 */
-    .cumulative-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 16px;
-      background: var(--card-bg);
-      padding: 16px;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-      border: 1px solid var(--border-color);
-    }
-
-    .cumulative-filter-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .filter-group label {
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .filter-group select {
-      padding: 6px 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 0.88rem;
-      outline: none;
-    }
-
-    .student-tags-bar { 
-      display: flex; gap: 6px; flex-wrap: wrap;
-    }
-
-    .tag-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: white; cursor: pointer; font-size: 0.85rem; color: var(--text-muted); transition: 0.2s; }
-    .tag-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .tag-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); font-weight: 600; }
-
-    /* 表格與直觀核銷膠囊 */
-    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
-    .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-    .data-table th { background-color: #f4f8fa; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; }
-    
-    /* 直觀動態狀態膠囊 (Status Pill) */
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      user-select: none;
-      transition: all 0.2s ease;
-      box-shadow: var(--shadow-sm);
-    }
-    .status-pill:hover { transform: scale(1.05); }
-    .status-pill.pill-unsubmitted { background-color: #F37748; color: white; }
-    .status-pill.pill-correcting { background-color: #FFD6C0; color: #5a2e19; border: 1px solid #f2bda2; }
-    .status-pill.pill-done { background-color: #eef5f9; color: var(--color-primary); border: 1px solid var(--color-secondary); }
-
-    .btn-action-group { display: flex; gap: 6px; align-items: center; }
-    .btn-verify-quick { padding: 5px 12px; background: #eef8fc; color: var(--color-primary); border: 1px solid var(--color-secondary); border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.82rem; transition: 0.2s; }
-    .btn-verify-quick:hover { background: #d8edf6; }
-
-    /* 列印設定頁面 */
-    .print-selector { background: var(--card-bg); padding: 20px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
-    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
-    .checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.95rem; cursor: pointer; }
-
-    /* A4 列印格式 */
-    @media print {
-      html, body { width: 210mm; background: white; padding: 0 !important; margin: 0 !important; }
-      .no-print { display: none !important; }
-      .print-only { display: block !important; }
-      @page { size: A4 portrait; margin: 5mm; }
-      .print-page { 
-        display: grid !important; grid-template-columns: 1fr 1fr !important; grid-template-rows: 1fr 1fr !important; 
-        gap: 5mm !important; width: 200mm !important; height: 285mm !important; box-sizing: border-box !important;
-        page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; break-inside: avoid !important; overflow: hidden !important;
-      }
-      .print-card { border: 2px solid #000; padding: 6mm 8mm; box-sizing: border-box; height: 138mm !important; overflow: hidden; display: flex; flex-direction: column; }
-      .print-card h3 { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; font-size: 1.3rem; font-weight: bold; }
-      .print-cat { font-weight: bold; background: #e5e7eb; padding: 2px 6px; font-size: 1rem; margin-top: 5px; border-radius: 4px; display: inline-block; }
-      .print-list { list-style: square; padding-left: 20px; font-size: 0.95rem; margin-top: 3px; line-height: 1.35; }
-      .print-list li { margin-bottom: 2px; }
-      .status-tag-print { font-weight: bold; margin-left: 4px; }
-    }
-
-    /* Modal 彈出視窗 */
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(28, 45, 55, 0.4); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 24px; border-radius: 16px; width: 580px; max-width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
-    .modal-content h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--color-primary); }
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-main); }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.9rem; transition: 0.2s; }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(6, 123, 194, 0.15); }
-    .modal-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-    .modal-btns button { padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); background: #f8fafc; }
-    
-    .student-edit-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    .student-edit-table th { font-size:0.8rem; text-align:left; padding:6px; color:var(--text-muted); background:#f4f8fa; }
-    .student-edit-table td { padding: 8px 4px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-  </style>
-</head>
-<body>
-
-  <!-- 頂部導覽列 -->
-  <header class="no-print">
-    <div class="nav-header-row">
-      <button class="active" onclick="switchTab('daily', this)">每日作業狀態</button>
-      <button onclick="switchTab('cumulative', this)">未完成統計與核銷</button>
-      <button onclick="switchTab('print', this)">列印欠繳清單</button>
-      
-      <div class="nav-divider"></div>
-      
-      <button onclick="openCategoryModal()">分類項目設定</button>
-      <button onclick="openStudentModal()">管理學生名單與分組</button>
-      <button class="btn-primary" onclick="openTaskModal()">+ 新增作業欄位</button>
-      <button class="btn-sync" onclick="syncCloud()">雲端同步 (GAS)</button>
-      <button class="btn-reset" onclick="resetAllData()">一鍵重置資料</button>
-    </div>
-  </header>
-
-  <!-- 🔥 UX 亮點 3：全域「科目快速過濾列 (Filter Chips Bar)」 -->
-  <div class="category-filter-bar no-print" id="category-filter-bar"></div>
-
-  <!-- 1. 每日作業狀態 -->
-  <main id="daily-view" class="tab-content active no-print">
-    <div class="task-board" id="task-board"></div>
-  </main>
-
-  <!-- 2. 未完成統計與核銷 -->
-  <main id="cumulative-view" class="tab-content no-print">
-    <div class="cumulative-controls">
-      <div class="cumulative-filter-row">
-        <div class="filter-group">
-          <label>過濾特定任務：</label>
-          <select id="task-filter-select" onchange="filterByTask(this.value)">
-            <option value="ALL">顯示全部作業項目</option>
-          </select>
-          <label style="margin-left: 10px; cursor: pointer; font-weight: normal; font-size: 0.88rem; display: flex; align-items: center; gap: 4px;">
-            <input type="checkbox" id="show-done-chk" onchange="toggleShowDone(this.checked)"> 顯示已完成項目 (復原/檢查)
-          </label>
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#fff7ed,#fed7aa)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Noto Sans TC',sans-serif" }}>
+      <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: 340, boxShadow: "0 8px 40px #f9731622", textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 8 }}>📚</div>
+        <div style={{ fontWeight: 800, fontSize: 22, color: "#f97316", marginBottom: 4 }}>班務作業系統</div>
+        <div style={{ color: "#9ca3af", fontSize: 13, marginBottom: 28 }}>老師請輸入管理密碼，家長請輸入學生號碼</div>
+        <div style={{ position: "relative", marginBottom: 16 }}>
+          <input
+            type={showPw ? "text" : "password"}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleLogin()}
+            placeholder="請輸入密碼或學生號碼"
+            style={{ ...inp, width: "100%", fontSize: 16, textAlign: "center", letterSpacing: 2, paddingRight: 40 }}
+            autoFocus
+          />
+          <button onClick={() => setShowPw(!showPw)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 16 }}>
+            {showPw ? "🙈" : "👁"}
+          </button>
         </div>
-        <button style="padding:6px 12px; background:#fdf2f2; color:var(--color-red); border:1px solid #f5babb; border-radius:6px; cursor:pointer; font-weight:600;" onclick="openManageTasksModal()">⚙️ 管理/修改歷史任務</button>
-      </div>
-      <div class="student-tags-bar" id="student-tags"></div>
-    </div>
-
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>學生姓名</th>
-          <th>作業日期</th>
-          <th>科目分類</th>
-          <th>作業名稱 (點擊✏️可編修)</th>
-          <th>點擊膠囊切換狀態 (未繳 ➔ 訂正 ➔ 完成)</th>
-          <th>快速核銷</th>
-        </tr>
-      </thead>
-      <tbody id="cumulative-list"></tbody>
-    </table>
-  </main>
-
-  <!-- 3. 列印設定頁面 -->
-  <main id="print-view" class="tab-content no-print">
-    <div class="print-selector">
-      <h3>選擇欲列印欠繳清單的學生：</h3>
-      <div style="margin-top: 10px;">
-        <button onclick="selectAllPrint(true)" style="padding:4px 10px; border-radius:6px; cursor:pointer;">全選</button>
-        <button onclick="selectAllPrint(false)" style="padding:4px 10px; border-radius:6px; cursor:pointer;">取消全選</button>
-        <button class="btn-print" style="margin-left: 15px; padding:6px 14px; border-radius:6px; cursor:pointer; font-weight:600;" onclick="triggerPrint()">開啟 A4 預覽與列印 (每頁4格)</button>
-      </div>
-      <div class="checkbox-grid" id="print-checkboxes"></div>
-    </div>
-  </main>
-
-  <!-- A4 列印區 -->
-  <div class="print-only" id="print-container"></div>
-
-  <!-- 新增任務 Modal -->
-  <div class="modal" id="task-modal">
-    <div class="modal-content">
-      <h3>新增作業任務</h3>
-      <div class="form-group" style="margin-top:12px;">
-        <label>作業日期：</label>
-        <input type="date" id="task-date-input">
-      </div>
-      <div class="form-group">
-        <label>選擇預設科目分類：</label>
-        <select id="task-category-select"></select>
-      </div>
-      <div class="form-group">
-        <label>指定對象/分組：</label>
-        <select id="task-target-group-select">
-          <option value="ALL">全班學生</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>輸入作業名稱：</label>
-        <input type="text" id="task-name-input" placeholder="例如：數評 L3 卷、國語習作 P.10">
-      </div>
-      <p style="font-size:0.8rem; color:var(--text-muted);">※ 若選擇指定分組，只有屬於該分組的學生會派發此作業。</p>
-      <div class="modal-btns">
-        <button onclick="closeTaskModal()">取消</button>
-        <button style="background:var(--color-primary); color:white; border:none;" onclick="saveNewTask()">確認新增</button>
+        {error && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        <button onClick={handleLogin} style={{ ...btnOrange, width: "100%", padding: "12px 0", fontSize: 16 }}>登入</button>
+        <div style={{ marginTop: 20, fontSize: 11, color: "#d1d5db" }}>家長預設密碼為學生號碼，可登入後自行更改</div>
       </div>
     </div>
-  </div>
+  );
+}
 
-  <!-- 🔥 UX 亮點 2：管理/修改歷史任務 Modal -->
-  <div class="modal" id="manage-tasks-modal">
-    <div class="modal-content">
-      <h3>管理與編修歷史作業任務</h3>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">可以直接在此修訂過往作業的名稱與日期，或刪除無效任務：</p>
-      <hr style="margin: 12px 0; border:0; border-top:1px solid var(--border-color);">
-      <table class="student-edit-table">
-        <thead>
-          <tr>
-            <th style="width:25%;">日期</th>
-            <th style="width:20%;">科目</th>
-            <th style="width:40%;">作業名稱</th>
-            <th style="width:15%;">操作</th>
-          </tr>
-        </thead>
-        <tbody id="manage-tasks-list"></tbody>
-      </table>
-      <div class="modal-btns">
-        <button onclick="closeManageTasksModal()">完成並關閉</button>
-      </div>
-    </div>
-  </div>
+// ═══════════════════════════════════════════════════════════════
+// PARENT VIEW
+// ═══════════════════════════════════════════════════════════════
+function ParentView({ student, students, assignments, progress, setProgress, engProgress, todos, onLogout, onPasswordChange, allData }) {
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [engSection, setEngSection] = useState(0);
+  const [saving, setSaving] = useState(false);
 
-  <!-- 科目分類管理 Modal -->
-  <div class="modal" id="category-modal">
-    <div class="modal-content">
-      <h3>科目分類項目設定</h3>
-      <div class="form-group" style="margin-top:10px;">
-        <label>新增科目分類：</label>
-        <div style="display:flex; gap:8px;">
-          <input type="text" id="new-category-input" placeholder="例如：數評、本土語、藝術">
-          <button style="padding:6px 12px; background:var(--color-primary); color:white; border:none; border-radius:8px; cursor:pointer;" onclick="addCategory()">新增</button>
-        </div>
-      </div>
-      <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
-      <h4>現有分類項目：</h4>
-      <div id="category-list" style="margin-top:10px;"></div>
-      <div class="modal-btns">
-        <button onclick="closeCategoryModal()">完成</button>
-      </div>
-    </div>
-  </div>
+  const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
 
-  <!-- 學生管理 Modal -->
-  <div class="modal" id="student-modal">
-    <div class="modal-content">
-      <h3>學生名單與分組管理</h3>
-      <div class="form-group" style="margin-top:10px;">
-        <label>批量新增學生（每行一位）：</label>
-        <textarea id="batch-student-input" style="height:65px;" placeholder="01 張小明&#10;02 李小華"></textarea>
-        <button style="margin-top:6px; padding:6px 12px; background:#f4f8fa; border:1px solid var(--border-color); border-radius:6px; cursor:pointer;" onclick="saveBatchStudents()">批量加入名單</button>
-      </div>
-      <hr style="margin: 15px 0; border:0; border-top:1px solid var(--border-color);">
-      <h4>現有名單與分組標籤：</h4>
-      <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:8px;">※ 可以在右側欄位替學生設定分組標籤（多個分組可用逗號分隔，例如：`A組, 抽離組`）</p>
-      <table class="student-edit-table">
-        <thead>
-          <tr>
-            <th style="width:45%;">學生姓名</th>
-            <th style="width:45%;">分組標籤 (如: A組)</th>
-            <th style="width:10%;">操作</th>
-          </tr>
-        </thead>
-        <tbody id="student-edit-list"></tbody>
-      </table>
-      <div class="modal-btns">
-        <button onclick="closeStudentModal()">關閉</button>
-      </div>
-    </div>
-  </div>
+  const handleChangePw = () => {
+    if (newPw.length < 4) { setPwMsg("密碼至少需要4位"); return; }
+    if (newPw !== confirmPw) { setPwMsg("兩次輸入不一致"); return; }
+    onPasswordChange(student.number, newPw);
+    setPwMsg("✅ 密碼已更新！");
+    setNewPw(""); setConfirmPw("");
+    setTimeout(() => { setPwMsg(""); setShowChangePw(false); }, 1500);
+  };
 
-  <script>
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPne0zJciyGcaaaUsb2QYsyvxyaJEBUQpCzqNX4hvXL6rMtjEijtFGSY8DaSV4_BmqvA/exec";
-
-    function getTodayString() {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    const defaultState = {
-      categories: ["國語", "數學", "數評", "英文", "社會", "自然"],
-      students: [
-        { name: "01 張小明", groups: ["A組"] },
-        { name: "02 李小華", groups: ["B組", "加強組"] },
-        { name: "03 王大同", groups: ["A組"] },
-        { name: "04 陳美麗", groups: ["B組"] },
-        { name: "05 林阿強", groups: ["加強組"] }
-      ],
-      tasks: [
-        { id: 1, date: getTodayString(), category: "國語", targetGroup: "ALL", name: "國語習作 L3" },
-        { id: 2, date: getTodayString(), category: "數評", targetGroup: "加強組", name: "數評 L2 測驗卷" }
-      ],
-      records: {
-        "01 張小明_1": "unsubmitted",
-        "02 李小華_1": "unsubmitted",
-        "02 李小華_2": "correcting",
-        "05 林阿強_2": "unsubmitted"
-      }
-    };
-
-    let state = JSON.parse(JSON.stringify(defaultState));
-    let selectedStudentFilter = 'ALL';
-    let selectedTaskFilter = 'ALL';
-    let selectedCategoryFilter = 'ALL'; // 全域科目過濾器
-    let showDoneItems = false;
-
-    function init() {
-      const saved = localStorage.getItem("tracker_data_v6");
-      if (saved) {
-        try {
-          state = JSON.parse(saved);
-          if (state.students && state.students.length > 0 && typeof state.students[0] === 'string') {
-            state.students = state.students.map(s => ({ name: s, groups: [] }));
-          }
-        } catch (e) {
-          state = JSON.parse(JSON.stringify(defaultState));
-        }
-      }
-      sortStudentsByNumber();
-      renderCategoryFilterBar();
-      renderDailyBoard();
-      renderTaskFilterOptions();
-      renderStudentTags();
-      renderCumulative();
-      renderPrintCheckboxes();
-    }
-
-    function saveData() {
-      sortStudentsByNumber();
-      localStorage.setItem("tracker_data_v6", JSON.stringify(state));
-      if (!GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) {
-        fetch(GAS_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(state) });
-      }
-    }
-
-    function sortStudentsByNumber() {
-      if (state.students && state.students.length > 0) {
-        state.students.sort((a, b) => {
-          const nameA = typeof a === 'string' ? a : a.name;
-          const nameB = typeof b === 'string' ? b : b.name;
-          const matchA = nameA.match(/\d+/);
-          const matchB = nameB.match(/\d+/);
-          const numA = matchA ? parseInt(matchA[0], 10) : Infinity;
-          const numB = matchB ? parseInt(matchB[0], 10) : Infinity;
-
-          if (numA !== numB) return numA - numB;
-          return nameA.localeCompare(nameB, 'zh-Hant');
+  const handleBookDone = async (assignmentId) => {
+    const newProgress = { ...progress, [assignmentId]: { ...progress[assignmentId], [student.number]: 2 } };
+    setProgress(newProgress);
+    // 自動儲存
+    setSaving(true);
+    try {
+      const progressRows = [];
+      Object.entries(newProgress).forEach(([aid, sns]) => {
+        Object.entries(sns).forEach(([sn, status]) => {
+          progressRows.push({ assignment_id: Number(aid), student_number: Number(sn), status });
         });
-      }
-    }
-
-    /* 🔥 UX 亮點 3：科目過濾 Chips 渲染與控制 */
-    function renderCategoryFilterBar() {
-      const bar = document.getElementById('category-filter-bar');
-      if (!bar) return;
-
-      let html = `<button class="cat-chip ${selectedCategoryFilter === 'ALL' ? 'active' : ''}" onclick="filterByCategory('ALL')">✨ 全部科目</button>`;
-      
-      state.categories.forEach(cat => {
-        const active = selectedCategoryFilter === cat ? 'active' : '';
-        html += `<button class="cat-chip ${active}" onclick="filterByCategory('${cat}')">${cat}</button>`;
       });
-
-      html += `<button class="cat-chip cat-chip-add" onclick="quickAddCategory()">+ 新增科目</button>`;
-      bar.innerHTML = html;
+      await saveSheet("progress", progressRows);
+    } catch (e) {
+      console.error("儲存失敗", e);
+    } finally {
+      setSaving(false);
     }
+  };
 
-    function filterByCategory(cat) {
-      selectedCategoryFilter = cat;
-      renderCategoryFilterBar();
-      renderDailyBoard();
-      renderCumulative();
-    }
+  const unfinishedAssign = assignments.filter(a => getStatus(a.id, student.number) < 2);
+  const pendingTodos = (todos || []).filter(t => t.student_number === student.number && !t.done);
+  const units = engSection === 0 ? [1,2,3,4,5] : [6,7,8,9,10];
+  const parts = [1,2,3,4];
 
-    function quickAddCategory() {
-      const newCat = prompt("請輸入新增的科目名稱（例如：數評、聽寫）：");
-      if (newCat && newCat.trim()) {
-        const trimmed = newCat.trim();
-        if (!state.categories.includes(trimmed)) {
-          state.categories.push(trimmed);
-          saveData();
-          filterByCategory(trimmed);
-        }
-      }
-    }
+  // 依類別分組
+  const catGroups = unfinishedAssign.reduce((acc, a) => {
+    const cat = a.category || "其他";
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(a);
+    return acc;
+  }, {});
+  const sortedCats = Object.keys(catGroups).sort((a, b) => a.localeCompare(b, "zh-TW"));
 
-    function getAllGroupTags() {
-      const groupSet = new Set();
-      state.students.forEach(s => {
-        if (s.groups && Array.isArray(s.groups)) {
-          s.groups.forEach(g => groupSet.add(g.trim()));
-        }
-      });
-      return Array.from(groupSet).filter(g => g.length > 0);
-    }
+  return (
+    <div style={{ fontFamily: "'Noto Sans TC',sans-serif", minHeight: "100vh", background: "#f9f7f4" }}>
+      <header style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 12px #f9731633" }}>
+        <div>
+          <div style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>📚 班務作業系統</div>
+          <div style={{ color: "#fed7aa", fontSize: 13 }}>{student.number} 號 {student.name} 的學習進度</div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowChangePw(!showChangePw)} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13 }}>🔑 改密碼</button>
+          <button onClick={onLogout} style={{ background: "#fff", color: "#f97316", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>登出</button>
+        </div>
+      </header>
 
-    function isStudentAssignedToTask(studentObj, taskObj) {
-      if (!taskObj.targetGroup || taskObj.targetGroup === 'ALL') return true;
-      if (!studentObj.groups || !Array.isArray(studentObj.groups)) return false;
-      return studentObj.groups.includes(taskObj.targetGroup);
-    }
+      {showChangePw && (
+        <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", padding: "16px 24px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="新密碼（至少4位）" style={{ ...inp, width: 160 }} />
+          <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="確認新密碼" style={{ ...inp, width: 160 }} />
+          <button onClick={handleChangePw} style={btnOrange}>確認更改</button>
+          {pwMsg && <span style={{ color: pwMsg.startsWith("✅") ? "#4ade80" : "#ef4444", fontWeight: 700 }}>{pwMsg}</span>}
+        </div>
+      )}
 
-    function resetAllData() {
-      if (confirm("警告：確定要重置系統資料嗎？這將會清空所有任務與紀錄。")) {
-        if (confirm("再次確認：資料刪除後無法復原！是否繼續？")) {
-          state = {
-            categories: ["國語", "數學", "數評", "英文", "社會", "自然"],
-            students: [],
-            tasks: [],
-            records: {}
-          };
-          saveData();
-          init();
-          alert("資料已完全清空！");
-        }
-      }
-    }
+      <main style={{ padding: "20px", maxWidth: 760, margin: "0 auto" }}>
 
-    function switchTab(tab, btnElem) {
-      document.querySelectorAll('.nav-header-row button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
-      if(btnElem) btnElem.classList.add('active');
-      
-      if (tab === 'daily') {
-        document.getElementById('daily-view').classList.add('active');
-        renderDailyBoard();
-      } else if (tab === 'cumulative') {
-        document.getElementById('cumulative-view').classList.add('active');
-        renderTaskFilterOptions();
-        renderStudentTags();
-        renderCumulative();
-      } else if (tab === 'print') {
-        document.getElementById('print-view').classList.add('active');
-        renderPrintCheckboxes();
-      }
-    }
-
-    /* 渲染每日看板 (含科目過濾連動) */
-    function renderDailyBoard() {
-      const board = document.getElementById('task-board');
-      board.innerHTML = '';
-
-      const todayStr = getTodayString();
-      // 結合日期與科目篩選
-      const todayTasks = state.tasks.filter(t => {
-        const isToday = t.date === todayStr;
-        const matchCat = selectedCategoryFilter === 'ALL' || t.category === selectedCategoryFilter;
-        return isToday && matchCat;
-      });
-
-      if (todayTasks.length === 0) {
-        const catMsg = selectedCategoryFilter !== 'ALL' ? `「${selectedCategoryFilter}」` : '';
-        board.innerHTML = `
-          <div class="empty-state-box">
-            <h3>今日 (${todayStr}) 尚無 ${catMsg} 作業任務</h3>
-            <p style="margin-top:8px;">請點擊上方「+ 新增作業欄位」建立作業，或點擊頂部「✨ 全部科目」查看其他作業。</p>
-          </div>`;
-        return;
-      }
-
-      todayTasks.forEach(task => {
-        const targetGroupText = (task.targetGroup && task.targetGroup !== 'ALL') ? `<span class="task-target-tag">🎯 ${task.targetGroup}</span>` : '';
-
-        let colHtml = `
-          <div class="task-column">
-            <button class="btn-delete-task" title="刪除此任務" onclick="deleteTask(${task.id})">&times;</button>
-            <div class="task-header">
-              <div class="task-meta">
-                <span class="task-category-tag">${task.category}</span>
-                ${targetGroupText}
-                <span class="task-date-tag">📅 ${task.date}</span>
+        {/* ── 每日進度（依類別分組）── */}
+        <div style={card}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: "#f97316", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+            📋 每日進度未完成
+            <span style={{ background: unfinishedAssign.length > 0 ? "#ef4444" : "#4ade80", color: "#fff", borderRadius: 10, padding: "1px 10px", fontSize: 13, fontWeight: 700 }}>
+              {unfinishedAssign.length} 項
+            </span>
+          </div>
+          {unfinishedAssign.length === 0
+            ? <div style={{ color: "#4ade80", fontWeight: 700 }}>✅ 全部完成！</div>
+            : sortedCats.map(cat => (
+              <div key={cat} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#f97316", background: "#fff7ed", borderRadius: 6, padding: "3px 10px", display: "inline-block", marginBottom: 8 }}>{cat}</div>
+                {catGroups[cat].map(a => {
+                  const st = getStatus(a.id, student.number);
+                  const isBookRecite = cat === "背書";
+                  return (
+                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f3f4f6", flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, fontSize: 15, color: "#1f2937", flex: 1 }}>{a.name}</span>
+                      {isBookRecite ? (
+                        <button onClick={() => handleBookDone(a.id)} disabled={saving}
+                          style={{ border: "2px solid #4ade80", borderRadius: 8, padding: "5px 16px", cursor: saving ? "wait" : "pointer", fontWeight: 700, fontSize: 13, background: saving ? "#f3f4f6" : "#fff", color: saving ? "#9ca3af" : "#4ade80" }}>
+                          {saving ? "儲存中…" : "✓ 背完了"}
+                        </button>
+                      ) : (
+                        <span style={{ background: STATUS_COLOR[st], borderRadius: 8, padding: "3px 12px", fontWeight: 700, fontSize: 13, color: st === 0 ? "#9ca3af" : "#1f2937", whiteSpace: "nowrap" }}>
+                          {STATUS[st]}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <div class="task-title-container">
-                <div class="task-title" id="task-title-${task.id}">${task.name}</div>
-                <button class="btn-edit-title" title="修改作業名稱" onclick="editTaskName(${task.id})">✏️</button>
+            ))}
+        </div>
+
+        {/* ── 待辦事項 ── */}
+        <div style={card}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: "#f97316", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+            📝 待辦事項
+            <span style={{ background: pendingTodos.length > 0 ? "#ef4444" : "#4ade80", color: "#fff", borderRadius: 10, padding: "1px 10px", fontSize: 13, fontWeight: 700 }}>
+              {pendingTodos.length} 項
+            </span>
+          </div>
+          {pendingTodos.length === 0
+            ? <div style={{ color: "#4ade80", fontWeight: 700 }}>✅ 沒有待辦事項！</div>
+            : pendingTodos.map(t => (
+              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
+                <span style={{ flex: 1, fontSize: 15, color: "#374151" }}>・{t.title}</span>
               </div>
+            ))}
+        </div>
+
+        {/* ── 英文作業 ── */}
+        <div style={card}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: "#f97316", marginBottom: 14 }}>📖 英文作業</div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            {["U1～5","U6～10"].map((label,i) => (
+              <button key={i} onClick={() => setEngSection(i)}
+                style={{ ...chipBtn, background: engSection === i ? "#f97316" : "#f3f4f6", color: engSection === i ? "#fff" : "#374151", padding: "8px 20px", fontSize: 14, fontWeight: 700 }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle({ minWidth: 50, borderRight: "2px solid #fed7aa", background: "#fff7ed" })}>Unit</th>
+                  <th style={thStyle({ minWidth: 45, borderRight: "2px solid #fed7aa", background: "#fff7ed" })}>Part</th>
+                  <th style={thStyle({ background: "#f97316", color: "#fff" })}>狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                {units.flatMap(u => parts.map((p, pi) => {
+                  const key = `U${u}-P${p}-${student.number}`;
+                  const done = !!engProgress[key];
+                  return (
+                    <tr key={`${u}-${p}`} style={{ background: pi % 2 === 0 ? "#fff" : "#fafafa" }}>
+                      {pi === 0 && (
+                        <td rowSpan={4} style={{ padding: "6px 10px", fontWeight: 800, fontSize: 14, color: "#f97316", borderRight: "2px solid #fed7aa", borderBottom: "2px solid #fed7aa", textAlign: "center", background: "#fff7ed", verticalAlign: "middle" }}>U{u}</td>
+                      )}
+                      <td style={{ padding: "4px 10px", fontWeight: 700, fontSize: 12, color: "#ea580c", borderRight: "2px solid #fed7aa", borderBottom: pi === 3 ? "2px solid #fed7aa" : "1px solid #f3f4f6", textAlign: "center", background: "#fff7ed" }}>P{p}</td>
+                      <td style={{ padding: "4px 10px", textAlign: "center", borderBottom: pi === 3 ? "2px solid #fed7aa" : "1px solid #f3f4f6" }}>
+                        <span style={{ background: done ? "#4ade80" : "#f3f4f6", color: done ? "#14532d" : "#9ca3af", borderRadius: 6, padding: "3px 14px", fontWeight: 700, fontSize: 13 }}>
+                          {done ? `✓ ${engProgress[key]}` : "未完成"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                }))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  );
+}
+
+
+
+
+
+
+
+export default function App() {
+  const [tab, setTab] = useState(0);
+  const [students, setStudents] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [progress, setProgress] = useState({});
+  const [engProgress, setEngProgress] = useState({});
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [todos, setTodos] = useState([]);
+  const [summerHw, setSummerHw] = useState([]); // [{id, title, student_number, status}] status: 0=未完成,1=訂正,2=完成
+  const [saving, setSaving] = useState(false);
+  const [loadMsg, setLoadMsg] = useState("載入中…");
+  const [loaded, setLoaded] = useState(false);
+  const [role, setRole] = useState(null); // null=登入畫面, "teacher", "parent"
+  const [currentStudent, setCurrentStudent] = useState(null);
+
+  // ── Load from Google Sheets ────────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        console.log("🔄 開始載入資料...");
+        const data = await gsLoad();
+        console.log("✅ 載入成功：", data);
+
+        // students (include password)
+        const s = (data.students || []).map(s => ({
+          number: Number(s.number),
+          name: s.name,
+          password: s.password ? String(s.password) : String(Number(s.number)),
+        })).sort((a, b) => a.number - b.number);
+        console.log("學生：", s);
+        setStudents(s);
+
+        // 日期格式化工具
+        const formatDate = (d) => {
+          if (!d) return "";
+          if (typeof d === "string" && d.includes("T")) {
+            const dt = new Date(d);
+            return `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()}`;
+          }
+          return String(d);
+        };
+
+        // assignments
+        const a = (data.assignments || []).map(a => ({ id: Number(a.id), name: a.name, date: formatDate(a.date), category: a.category || "其他" }));
+        console.log("作業：", a);
+        setAssignments(a);
+
+        // progress: flat rows → nested map
+        const pm = {};
+        (data.progress || []).forEach(({ assignment_id, student_number, status }) => {
+          const aid = Number(assignment_id);
+          if (!pm[aid]) pm[aid] = {};
+          pm[aid][Number(student_number)] = Number(status);
+        });
+        console.log("進度：", pm);
+        setProgress(pm);
+
+        // english_progress: rows → key/date map
+        const em = {};
+        (data.english_progress || []).forEach(({ key, date }) => { em[key] = date; });
+        console.log("英文進度：", em);
+        setEngProgress(em);
+
+        // categories
+        const cats = (data.categories || []).map(c => c.name).filter(Boolean);
+        if (cats.length) setCategories(cats);
+        console.log("分類：", cats);
+
+        // todos
+        const todosData = (data.todos || []).map(t => ({
+          id: String(t.id),
+          title: t.title,
+          student_number: Number(t.student_number),
+          done: t.done === "true" || t.done === true,
+        }));
+        setTodos(todosData);
+
+        // summer_hw: merge defs + progress
+        const summerDefs = (data.summer_hw || []).map(h => ({
+          id: Number(h.id) || String(h.id),
+          name: h.name,
+          category: h.category || "暑假",
+          date: formatDate(h.date),
+          progress: {},
+        }));
+        const summerProgRows = (data.summer_progress || []);
+        summerProgRows.forEach(({ hw_id, student_number, status }) => {
+          const hw = summerDefs.find(h => String(h.id) === String(hw_id));
+          if (hw) hw.progress[Number(student_number)] = Number(status);
+        });
+        setSummerHw(summerDefs);
+        console.log("待辦：", todosData);
+
+      } catch (err) {
+        console.error("❌ 載入失敗：", err);
+        setLoadMsg("⚠ 無法連線，使用本地模式（" + err.message + "）");
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  // ── Save to Google Sheets ──────────────────────────────────────────────────
+  const save = async () => {
+    setSaving(true);
+    try {
+      // Flatten progress map → rows
+      const progressRows = [];
+      Object.entries(progress).forEach(([aid, sns]) => {
+        Object.entries(sns).forEach(([sn, status]) => {
+          progressRows.push({ assignment_id: aid, student_number: Number(sn), status });
+        });
+      });
+
+      // Flatten engProgress map → rows
+      const epRows = Object.entries(engProgress).map(([key, date]) => ({ key, date }));
+
+      // categories → rows
+      const catRows = categories.map(name => ({ name }));
+
+      // Flatten summerHw: separate hw definitions and progress
+      const summerHwDefs = summerHw.map(({ id, name, category, date }) => ({ id, name, category, date }));
+      const summerProgressRows = [];
+      summerHw.forEach(h => {
+        if (h.progress) {
+          Object.entries(h.progress).forEach(([sn, status]) => {
+            summerProgressRows.push({ hw_id: h.id, student_number: Number(sn), status });
+          });
+        }
+      });
+
+      await gsSave({
+        students,
+        assignments,
+        progress: progressRows,
+        english_progress: epRows,
+        categories: catRows,
+        todos,
+        summer_hw: summerHwDefs,
+        summer_progress: summerProgressRows,
+      });
+
+      alert("✅ 儲存成功！");
+    } catch (e) {
+      alert("❌ 儲存失敗：" + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTeacherLogin = () => setRole("teacher");
+  const handleParentLogin = (student) => { setRole("parent"); setCurrentStudent(student); };
+  const handleLogout = () => { setRole(null); setCurrentStudent(null); };
+  const handlePasswordChange = (studentNumber, newPw) => {
+    setStudents(prev => prev.map(s => s.number === studentNumber ? { ...s, password: newPw } : s));
+  };
+
+  if (!loaded) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "sans-serif", color: "#f97316", fontSize: 20 }}>
+      {loadMsg}
+    </div>
+  );
+
+  if (role === null) return (
+    <LoginScreen students={students} onTeacherLogin={handleTeacherLogin} onParentLogin={handleParentLogin} />
+  );
+
+  if (role === "parent") return (
+    <ParentView
+      student={currentStudent}
+      students={students}
+      assignments={assignments}
+      progress={progress}
+      setProgress={setProgress}
+      engProgress={engProgress}
+      todos={todos}
+      onLogout={handleLogout}
+      onPasswordChange={handlePasswordChange}
+    />
+  );
+
+  return (
+    <div style={{ fontFamily: "'Noto Sans TC', sans-serif", minHeight: "100vh", background: "#f9f7f4" }}>
+      {/* Header */}
+      <header style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 12px #f9731633" }}>
+        <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: 2 }}>📚 班務作業系統</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={save} disabled={saving} style={{ background: saving ? "#ccc" : "#fff", color: "#f97316", border: "none", borderRadius: 8, padding: "8px 20px", fontWeight: 700, cursor: "pointer", fontSize: 15 }}>
+            {saving ? "儲存中…" : "💾 儲存"}
+          </button>
+          <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 14 }}>登出</button>
+        </div>
+      </header>
+
+      {/* Tabs */}
+      <nav style={{ display: "flex", background: "#fff", borderBottom: "2px solid #fed7aa", paddingLeft: 16 }}>
+        {TABS.map((t, i) => (
+          <button key={i} onClick={() => setTab(i)} style={{
+            padding: "12px 24px", border: "none", background: "none", cursor: "pointer",
+            fontWeight: tab === i ? 800 : 500, fontSize: 15,
+            color: tab === i ? "#f97316" : "#6b7280",
+            borderBottom: tab === i ? "3px solid #f97316" : "3px solid transparent",
+            transition: "all .2s"
+          }}>{t}</button>
+        ))}
+      </nav>
+
+      <main style={{ padding: "24px", maxWidth: 960, margin: "0 auto" }}>
+        {tab === 0 && <StudentTab students={students} setStudents={setStudents} />}
+        {tab === 1 && <DailyTab students={students} assignments={assignments} setAssignments={setAssignments} progress={progress} setProgress={setProgress} categories={categories} setCategories={setCategories} todos={todos} setTodos={setTodos} />}
+        {tab === 2 && <EnglishTab students={students} engProgress={engProgress} setEngProgress={setEngProgress} />}
+        {tab === 3 && <TodoTab students={students} todos={todos} setTodos={setTodos} />}
+        {tab === 4 && <SummerHwTab students={students} summerHw={summerHw} setSummerHw={setSummerHw} />}
+        {tab === 5 && <PrintTab students={students} assignments={assignments} progress={progress} engProgress={engProgress} categories={categories} />}
+      </main>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB 1: 學生名單
+// ═══════════════════════════════════════════════════════════════
+function StudentTab({ students, setStudents }) {
+  const [name, setName] = useState("");
+  const [num, setNum] = useState("");
+  const [bulk, setBulk] = useState("");
+  const [showBulk, setShowBulk] = useState(false);
+
+  const addOne = () => {
+    if (!name.trim() || !num.trim()) return;
+    const n = Number(num);
+    if (students.find(s => s.number === n)) return alert("號碼已存在");
+    setStudents(prev => [...prev, { number: n, name: name.trim() }].sort((a, b) => a.number - b.number));
+    setName(""); setNum("");
+  };
+
+  const addBulk = () => {
+    const lines = bulk.trim().split("\n").map(l => l.trim()).filter(Boolean);
+    const news = [];
+    for (const l of lines) {
+      const parts = l.split(/[\s,，]+/);
+      if (parts.length < 2) continue;
+      const n = Number(parts[0]);
+      const nm = parts.slice(1).join("");
+      if (!isNaN(n) && nm && !students.find(s => s.number === n)) news.push({ number: n, name: nm });
+    }
+    setStudents(prev => [...prev, ...news].sort((a, b) => a.number - b.number));
+    setBulk(""); setShowBulk(false);
+  };
+
+  const del = (n) => setStudents(prev => prev.filter(s => s.number !== n));
+
+  return (
+    <div>
+      <h2 style={h2}>👥 學生名單管理</h2>
+
+      {/* Single add */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>新增單一學生</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input value={num} onChange={e => setNum(e.target.value)} placeholder="號碼" style={{ ...inp, width: 80 }} type="number" />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="姓名" style={{ ...inp, width: 120 }} />
+          <button onClick={addOne} style={btnOrange}>新增</button>
+          <button onClick={() => setShowBulk(!showBulk)} style={btnGray}>批量新增</button>
+        </div>
+        {showBulk && (
+          <div style={{ marginTop: 12 }}>
+            <textarea value={bulk} onChange={e => setBulk(e.target.value)}
+              placeholder={"每行一位，格式：號碼 姓名\n例：\n1 王小明\n2 李小華"}
+              style={{ ...inp, width: "100%", height: 120, resize: "vertical" }} />
+            <button onClick={addBulk} style={{ ...btnOrange, marginTop: 8 }}>批量新增</button>
+          </div>
+        )}
+      </div>
+
+      {/* List */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>全班名單（{students.length} 人）</div>
+        {students.length === 0 && <div style={{ color: "#9ca3af" }}>尚無學生</div>}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          {students.map(s => (
+            <div key={s.number} style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#f97316", fontWeight: 700 }}>{s.number}</span>
+              <span style={{ color: "#374151" }}>{s.name}</span>
+              <button onClick={() => del(s.number)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16, lineHeight: 1 }}>✕</button>
             </div>
-            <div class="student-grid-2col">`;
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        if (state.students.length === 0) {
-          colHtml += `<div style="grid-column: span 2; text-align:center; color:var(--text-muted); padding:10px; font-size:0.85rem;">尚未建立學生名單</div>`;
-        } else {
-          state.students.forEach(studentObj => {
-            const studentName = studentObj.name;
-            const isAssigned = isStudentAssignedToTask(studentObj, task);
+// ═══════════════════════════════════════════════════════════════
+// TAB 2: 每日進度
+// ═══════════════════════════════════════════════════════════════
+function DailyTab({ students, assignments, setAssignments, progress, setProgress, categories, setCategories, todos, setTodos }) {
+  const [newAssign, setNewAssign] = useState("");
+  const [newAssignCat, setNewAssignCat] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [filter, setFilter] = useState(null);       // student number quick search
+  const [catFilter, setCatFilter] = useState("全部"); // category filter for display
+  const [newCatName, setNewCatName] = useState("");
+  const [showCatMgr, setShowCatMgr] = useState(false);
 
-            if (!isAssigned) {
-              colHtml += `
-                <div class="student-block status-na" title="非指定分組作業">
-                  <span class="student-name-text">${studentName}</span>
-                  <span class="status-sub">免</span>
-                </div>`;
-            } else {
-              const key = `${studentName}_${task.id}`;
-              const status = state.records[key] || 'unsubmitted';
-              
-              let statusClass = 'status-unsubmitted';
-              let statusText = '未';
-              if (status === 'correcting') { statusClass = 'status-correcting'; statusText = '訂'; }
-              else if (status === 'done') { statusClass = 'status-done'; statusText = '完'; }
+  // Init default selected category
+  useEffect(() => {
+    if (!newAssignCat && categories.length) setNewAssignCat(categories[0]);
+  }, [categories]);
 
-              colHtml += `
-                <div class="student-block ${statusClass}" onclick="cycleStatus('${studentName}', ${task.id})">
-                  <span class="student-name-text">${studentName}</span>
-                  <span class="status-sub">${statusText}</span>
-                </div>`;
-            }
-          });
-        }
+  const addAssign = () => {
+    if (!newAssign.trim()) return;
+    const id = Date.now();
+    setAssignments(prev => [{ id, name: newAssign.trim(), date: today(), category: newAssignCat || categories[0] || "其他" }, ...prev]);
+    setNewAssign("");
+  };
 
-        colHtml += `</div></div>`;
-        board.innerHTML += colHtml;
-      });
+  const delAssign = (id) => {
+    setAssignments(prev => prev.filter(a => a.id !== id));
+    setProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const saveEdit = (id) => {
+    setAssignments(prev => prev.map(a => a.id === id ? { ...a, name: editName } : a));
+    setEditId(null);
+  };
+
+  const cycleStatus = (aid, sn) => {
+    setProgress(prev => {
+      const cur = prev[aid]?.[sn] ?? 0;
+      return { ...prev, [aid]: { ...prev[aid], [sn]: (cur + 1) % 3 } };
+    });
+  };
+
+  const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
+
+  const addCategory = () => {
+    const n = newCatName.trim();
+    if (!n || categories.includes(n)) return;
+    setCategories(prev => [...prev, n]);
+    setNewCatName("");
+  };
+
+  const delCategory = (cat) => {
+    setCategories(prev => prev.filter(c => c !== cat));
+  };
+
+  const visibleAssignments = catFilter === "全部"
+    ? assignments
+    : assignments.filter(a => a.category === catFilter);
+
+  const unfinished = filter !== null
+    ? visibleAssignments.filter(a => getStatus(a.id, filter) < 2)
+    : null;
+
+  // Category tag color palette
+  const catColors = ["#f97316","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f59e0b","#10b981","#6366f1"];
+  const catColor = (cat) => catColors[categories.indexOf(cat) % catColors.length];
+
+  return (
+    <div>
+      <h2 style={h2}>📋 每日進度</h2>
+
+      {/* ── Category Manager ── */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCatMgr ? 14 : 0 }}>
+          <div style={{ fontWeight: 700, color: "#374151" }}>🏷 分類管理</div>
+          <button onClick={() => setShowCatMgr(!showCatMgr)} style={{ ...btnGray, padding: "4px 14px", fontSize: 13 }}>
+            {showCatMgr ? "收起 ▲" : "管理分類 ▼"}
+          </button>
+        </div>
+        {showCatMgr && (
+          <>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+              {categories.map(cat => (
+                <div key={cat} style={{ display: "flex", alignItems: "center", gap: 6, background: catColor(cat) + "22", border: `1.5px solid ${catColor(cat)}`, borderRadius: 20, padding: "4px 12px" }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: catColor(cat) }}>{cat}</span>
+                  <button onClick={() => delCategory(cat)} style={{ background: "none", border: "none", cursor: "pointer", color: catColor(cat), fontSize: 14, lineHeight: 1, padding: 0 }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addCategory()}
+                placeholder="新增分類名稱…" style={{ ...inp, flex: 1 }} />
+              <button onClick={addCategory} style={btnOrange}>新增分類</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Add Assignment ── */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: "#374151", marginBottom: 12 }}>➕ 新增作業</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={newAssignCat} onChange={e => setNewAssignCat(e.target.value)}
+            style={{ ...inp, minWidth: 90, background: "#fff" }}>
+            {categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input value={newAssign} onChange={e => setNewAssign(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addAssign()}
+            placeholder="作業名稱…" style={{ ...inp, flex: 1, minWidth: 180 }} />
+          <button onClick={addAssign} style={btnOrange}>新增</button>
+        </div>
+      </div>
+
+      {/* ── Category Filter ── */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+        {["全部", ...categories].map(cat => (
+          <button key={cat} onClick={() => setCatFilter(cat)}
+            style={{
+              ...chipBtn,
+              background: catFilter === cat ? (cat === "全部" ? "#374151" : catColor(cat)) : "#f3f4f6",
+              color: catFilter === cat ? "#fff" : "#374151",
+              border: catFilter === cat ? "none" : `1.5px solid #e5e7eb`
+            }}>{cat}</button>
+        ))}
+      </div>
+
+      {/* ── Quick Search ── */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 10, color: "#374151" }}>🔍 快速查找學生未完成項目</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {students.map(s => (
+            <button key={s.number} onClick={() => setFilter(filter === s.number ? null : s.number)}
+              style={{ ...chipBtn, background: filter === s.number ? "#f97316" : "#f3f4f6", color: filter === s.number ? "#fff" : "#374151" }}>
+              {s.number} {s.name}
+            </button>
+          ))}
+          {filter !== null && <button onClick={() => setFilter(null)} style={{ ...chipBtn, background: "#ef4444", color: "#fff" }}>清除</button>}
+        </div>
+        {filter !== null && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 700, color: "#f97316", marginBottom: 12, fontSize: 15 }}>
+              {students.find(s => s.number === filter)?.name} 未完成項目（{catFilter === "全部" ? "全部分類" : catFilter}）：
+            </div>
+            {/* 作業未完成 */}
+            {unfinished.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: "#9ca3af", fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>📋 作業</div>
+                {unfinished.map(a => {
+                  const st = getStatus(a.id, filter);
+                  return (
+                    <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 8, background: "#f9f7f4", borderRadius: 10, border: "1px solid #f3f4f6" }}>
+                      <span style={{ background: catColor(a.category) + "22", color: catColor(a.category), borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{a.category}</span>
+                      <span style={{ flex: 1, fontSize: 16, fontWeight: 600, color: "#1f2937" }}>{a.name}</span>
+                      {/* 三個狀態直接點選 */}
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {STATUS.map((label, i) => (
+                          <button key={i} onClick={() => {
+                            setProgress(prev => ({ ...prev, [a.id]: { ...prev[a.id], [filter]: i } }));
+                          }} style={{
+                            border: "2px solid",
+                            borderColor: st === i ? ["#9ca3af","#f97316","#4ade80"][i] : "#e5e7eb",
+                            borderRadius: 8, padding: "6px 14px", cursor: "pointer",
+                            fontWeight: 700, fontSize: 14,
+                            background: st === i ? STATUS_COLOR[i] : "#fff",
+                            color: st === i ? (i === 0 ? "#6b7280" : "#1f2937") : "#9ca3af",
+                            transition: "all .15s",
+                          }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {/* 待辦未完成 */}
+            {(() => {
+              const pendingTodos = (todos || []).filter(t => t.student_number === filter && !t.done);
+              return pendingTodos.length > 0 ? (
+                <div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>📝 待辦事項</div>
+                  {pendingTodos.map(t => (
+                    <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 8, background: "#f9f7f4", borderRadius: 10, border: "1px solid #f3f4f6" }}>
+                      <span style={{ flex: 1, fontSize: 16, fontWeight: 600, color: "#374151" }}>・{t.title}</span>
+                      <button onClick={() => setTodos(prev => prev.map(x => x.id === t.id ? { ...x, done: true } : x))}
+                        style={{ border: "2px solid #4ade80", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 14, background: "#fff", color: "#4ade80", transition: "all .15s" }}>
+                        完成
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+            {unfinished.length === 0 && (todos || []).filter(t => t.student_number === filter && !t.done).length === 0 && (
+              <div style={{ color: "#4ade80", fontWeight: 700, fontSize: 16, padding: "12px 0" }}>✅ 全部完成！</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Assignment List ── */}
+      {visibleAssignments.length === 0 && <div style={{ color: "#9ca3af", textAlign: "center", padding: 40 }}>尚無作業</div>}
+      {visibleAssignments.map(a => (
+        <div key={a.id} style={{ ...card, borderLeft: `4px solid ${catColor(a.category)}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <span style={{ background: catColor(a.category) + "22", color: catColor(a.category), borderRadius: 10, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{a.category}</span>
+            {editId === a.id ? (
+              <>
+                <input value={editName} onChange={e => setEditName(e.target.value)}
+                  style={{ ...inp, flex: 1, minWidth: 160 }} />
+                <button onClick={() => saveEdit(a.id)} style={btnOrange}>儲存</button>
+                <button onClick={() => setEditId(null)} style={btnGray}>取消</button>
+              </>
+            ) : (
+              <>
+                <span style={{ fontWeight: 700, fontSize: 17, color: "#1f2937", flex: 1 }}>{a.name}</span>
+                <span style={{ color: "#9ca3af", fontSize: 13 }}>{a.date}</span>
+                <button onClick={() => { setEditId(a.id); setEditName(a.name); }} style={btnGray}>✏️ 改名</button>
+                <button onClick={() => delAssign(a.id)} style={{ ...btnGray, color: "#ef4444" }}>🗑 刪除</button>
+              </>
+            )}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {students.map(s => {
+              const st = getStatus(a.id, s.number);
+              return (
+                <button key={s.number} onClick={() => cycleStatus(a.id, s.number)}
+                  title={STATUS[st]}
+                  style={{
+                    width: 56, padding: "4px 0", border: "none", borderRadius: 8, cursor: "pointer",
+                    background: STATUS_COLOR[st], transition: "all .15s",
+                    fontWeight: 700, fontSize: 13, color: st === 0 ? "#9ca3af" : "#1f2937"
+                  }}>
+                  <div>{s.number}</div>
+                  <div style={{ fontSize: 10, fontWeight: 400 }}>{STATUS[st]}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB 3: 英文作業
+// ═══════════════════════════════════════════════════════════════
+function EnglishTab({ students, engProgress, setEngProgress }) {
+  const [section, setSection] = useState(0);
+  const [datePopup, setDatePopup] = useState({ key: null, value: "" });
+  const units = section === 0 ? [1, 2, 3, 4, 5] : [6, 7, 8, 9, 10];
+  const parts = [1, 2, 3, 4];
+
+  const handleClick = (u, p, sn) => {
+    const key = `U${u}-P${p}-${sn}`;
+    if (engProgress[key]) {
+      setEngProgress(prev => { const n = { ...prev }; delete n[key]; return n; });
+    } else {
+      const now = new Date();
+      setDatePopup({ key, value: `${now.getMonth() + 1}/${now.getDate()}` });
     }
+  };
 
-    /* 🔥 UX 亮點 2：行內快速修改任務名稱 */
-    function editTaskName(taskId) {
-      const task = state.tasks.find(t => t.id === taskId);
-      if (!task) return;
-      
-      const newName = prompt("修訂作業名稱：", task.name);
-      if (newName !== null) {
-        const trimmed = newName.trim();
-        if (trimmed) {
-          task.name = trimmed;
-          saveData();
-          renderDailyBoard();
-          renderCumulative();
-        } else {
-          alert("作業名稱不能為空！");
-        }
-      }
-    }
+  const confirmDate = () => {
+    if (!datePopup.key || !datePopup.value.trim()) return;
+    setEngProgress(prev => ({ ...prev, [datePopup.key]: datePopup.value.trim() }));
+    setDatePopup({ key: null, value: "" });
+  };
 
-    function cycleStatus(studentName, taskId) {
-      const key = `${studentName}_${taskId}`;
-      const current = state.records[key] || 'unsubmitted';
-      
-      if (current === 'unsubmitted') state.records[key] = 'correcting';
-      else if (current === 'correcting') state.records[key] = 'done';
-      else if (current === 'done') state.records[key] = 'unsubmitted';
+  return (
+    <div>
+      <h2 style={h2}>📖 英文作業</h2>
 
-      saveData();
-      renderDailyBoard();
-    }
+      {/* 日期輸入 popup */}
+      {datePopup.key && (
+        <div onClick={() => setDatePopup({ key: null, value: "" })}
+          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 16, padding: 28, width: 280, boxShadow: "0 8px 32px #0003" }}>
+            <div style={{ fontWeight: 800, fontSize: 17, color: "#f97316", marginBottom: 6 }}>✏️ 輸入完成日期</div>
+            <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 16 }}>格式：月/日，例如 5/15</div>
+            <input autoFocus value={datePopup.value}
+              onChange={e => setDatePopup(prev => ({ ...prev, value: e.target.value }))}
+              onKeyDown={e => e.key === "Enter" && confirmDate()}
+              placeholder="例：5/15"
+              style={{ ...inp, width: "100%", fontSize: 18, textAlign: "center", marginBottom: 16 }} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={confirmDate} style={{ ...btnOrange, flex: 1, padding: "10px 0", fontSize: 15 }}>確認</button>
+              <button onClick={() => setDatePopup({ key: null, value: "" })} style={{ ...btnGray, flex: 1, padding: "10px 0", fontSize: 15 }}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-    function renderTaskFilterOptions() {
-      const select = document.getElementById('task-filter-select');
-      select.innerHTML = '<option value="ALL">顯示全部作業項目</option>';
-      state.tasks.forEach(task => {
-        // 連動科目過濾
-        if (selectedCategoryFilter !== 'ALL' && task.category !== selectedCategoryFilter) return;
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        {["U1～5", "U6～10"].map((label, i) => (
+          <button key={i} onClick={() => setSection(i)}
+            style={{ ...chipBtn, background: section === i ? "#f97316" : "#f3f4f6", color: section === i ? "#fff" : "#374151", padding: "10px 28px", fontSize: 15, fontWeight: 700 }}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-        const selected = selectedTaskFilter == task.id ? 'selected' : '';
-        const groupInfo = (task.targetGroup && task.targetGroup !== 'ALL') ? ` (${task.targetGroup})` : '';
-        select.innerHTML += `<option value="${task.id}" ${selected}>[${task.date}] ${task.category} - ${task.name}${groupInfo}</option>`;
-      });
-    }
-
-    function filterByTask(taskId) {
-      selectedTaskFilter = taskId;
-      renderCumulative();
-    }
-
-    function toggleShowDone(checked) {
-      showDoneItems = checked;
-      renderCumulative();
-    }
-
-    function renderStudentTags() {
-      const container = document.getElementById('student-tags');
-      container.innerHTML = `<button class="tag-btn ${selectedStudentFilter==='ALL'?'active':''}" onclick="filterByStudent('ALL')">全部學生</button>`;
-      state.students.forEach(s => {
-        const studentName = s.name;
-        const active = selectedStudentFilter === studentName ? 'active' : '';
-        container.innerHTML += `<button class="tag-btn ${active}" onclick="filterByStudent('${studentName}')">${studentName}</button>`;
-      });
-    }
-
-    function filterByStudent(studentName) {
-      selectedStudentFilter = studentName;
-      renderStudentTags();
-      renderCumulative();
-    }
-
-    /* 🔥 UX 亮點 1 & 3：未完成統計與直觀膠囊核銷 */
-    function renderCumulative() {
-      const list = document.getElementById('cumulative-list');
-      list.innerHTML = '';
-
-      if (state.students.length === 0 || state.tasks.length === 0) {
-        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">尚無學生或任務資料</td></tr>`;
-        return;
-      }
-
-      let count = 0;
-      state.students.forEach(studentObj => {
-        const studentName = studentObj.name;
-        if (selectedStudentFilter !== 'ALL' && selectedStudentFilter !== studentName) return;
-
-        state.tasks.forEach(task => {
-          // 科目與任務雙重過濾
-          if (selectedCategoryFilter !== 'ALL' && task.category !== selectedCategoryFilter) return;
-          if (selectedTaskFilter !== 'ALL' && selectedTaskFilter != task.id) return;
-          if (!isStudentAssignedToTask(studentObj, task)) return;
-
-          const key = `${studentName}_${task.id}`;
-          const status = state.records[key] || 'unsubmitted';
-
-          if (status === 'unsubmitted' || status === 'correcting' || (showDoneItems && status === 'done')) {
-            count++;
-            
-            let pillClass = 'pill-unsubmitted';
-            let pillText = '未繳 (點擊切換)';
-            if (status === 'correcting') { pillClass = 'pill-correcting'; pillText = '訂正中 (點擊切換)'; }
-            else if (status === 'done') { pillClass = 'pill-done'; pillText = '已完成 (點擊切換)'; }
-
-            const targetGroupTag = (task.targetGroup && task.targetGroup !== 'ALL') ? `<span class="task-target-tag" style="margin-left:4px;">🎯 ${task.targetGroup}</span>` : '';
-
-            list.innerHTML += `
-              <tr>
-                <td><b>${studentName}</b></td>
-                <td>${task.date || '-'}</td>
-                <td><span class="task-category-tag">${task.category}</span></td>
-                <td>
-                  <b>${task.name}</b> ${targetGroupTag}
-                  <button class="btn-edit-title" title="修改作業名稱" onclick="editTaskName(${task.id})">✏️</button>
+      <div style={{ ...card, overflowX: "auto", padding: 0 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 640 }}>
+          <thead>
+            <tr>
+              <th rowSpan={2} style={thStyle({ minWidth: 60, borderRight: "2px solid #fed7aa", background: "#fff7ed" })}>Unit</th>
+              <th rowSpan={2} style={thStyle({ minWidth: 50, borderRight: "2px solid #fed7aa", background: "#fff7ed" })}>Part</th>
+              {students.map(s => (
+                <th key={s.number} style={thStyle({ background: "#f97316", color: "#fff", fontSize: 12, minWidth: 52 })}>
+                  <div style={{ fontSize: 10 }}>{s.number}</div>
+                  <div>{s.name}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {students.length === 0 && (
+              <tr><td colSpan={students.length + 2} style={{ textAlign: "center", padding: 32, color: "#9ca3af" }}>尚無學生</td></tr>
+            )}
+            {units.flatMap(u => parts.map((p, pi) => (
+              <tr key={`${u}-${p}`} style={{ background: pi % 2 === 0 ? "#fff" : "#fafafa" }}>
+                {pi === 0 && (
+                  <td rowSpan={4} style={{ padding: "6px 10px", fontWeight: 800, fontSize: 14, color: "#f97316", borderRight: "2px solid #fed7aa", borderBottom: "2px solid #fed7aa", textAlign: "center", background: "#fff7ed", verticalAlign: "middle" }}>
+                    U{u}
+                  </td>
+                )}
+                <td style={{ padding: "4px 10px", fontWeight: 700, fontSize: 12, color: "#ea580c", borderRight: "2px solid #fed7aa", borderBottom: pi === 3 ? "2px solid #fed7aa" : "1px solid #f3f4f6", textAlign: "center", background: "#fff7ed", whiteSpace: "nowrap" }}>
+                  P{p}
                 </td>
-                <td>
-                  <div class="status-pill ${pillClass}" onclick="cycleCumulativeStatus('${studentName}', ${task.id})">
-                    ${pillText}
-                  </div>
-                </td>
-                <td>
-                  <button class="btn-verify-quick" onclick="setTaskStatus('${studentName}', ${task.id}, 'done')">一鍵完成</button>
-                </td>
-              </tr>`;
-          }
+                {students.map(s => {
+                  const key = `U${u}-P${p}-${s.number}`;
+                  const done = !!engProgress[key];
+                  return (
+                    <td key={s.number} style={{ padding: 3, borderBottom: pi === 3 ? "2px solid #fed7aa" : "1px solid #f3f4f6", borderLeft: "1px solid #f3f4f6", textAlign: "center" }}>
+                      <button onClick={() => handleClick(u, p, s.number)}
+                        title={done ? `完成於 ${engProgress[key]}（點擊取消）` : "點擊標記完成"}
+                        style={{ width: "100%", minWidth: 44, padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", background: done ? "#4ade80" : "#f3f4f6", color: done ? "#14532d" : "#d1d5db", fontSize: 11, fontWeight: 700, transition: "all .15s", lineHeight: 1.3 }}>
+                        {done ? "✓" : "－"}
+                        {done && <div style={{ fontSize: 8, fontWeight: 400, color: "#166534", marginTop: 1 }}>{engProgress[key]}</div>}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            )))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ display: "flex", gap: 16, marginTop: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b7280" }}>
+          <div style={{ width: 20, height: 20, background: "#4ade80", borderRadius: 4 }} /> 已完成（點擊取消）
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b7280" }}>
+          <div style={{ width: 20, height: 20, background: "#f3f4f6", borderRadius: 4 }} /> 未完成
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const thStyle = (extra = {}) => ({
+  padding: "8px 6px", fontSize: 13, fontWeight: 700, textAlign: "center",
+  borderBottom: "2px solid #fed7aa", position: "sticky", top: 0, zIndex: 1,
+  ...extra
+});
+
+// ═══════════════════════════════════════════════════════════════
+// TAB 4: 待辦事項
+// ═══════════════════════════════════════════════════════════════
+function TodoTab({ students, todos, setTodos }) {
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [newTitles, setNewTitles] = useState(""); // 多行文字，每行一個事項
+  const [selectedFor, setSelectedFor] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const toggleForStudent = (n) => setSelectedFor(prev =>
+    prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n]
+  );
+
+  const selectAll = () => setSelectedFor(students.map(s => s.number));
+  const clearAll = () => setSelectedFor([]);
+
+  const addTodo = () => {
+    const lines = newTitles.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0 || selectedFor.length === 0) return;
+    const ts = Date.now();
+    const newItems = [];
+    lines.forEach((title, li) => {
+      selectedFor.forEach((sn, si) => {
+        newItems.push({
+          id: `${ts}-${li}-${si}-${sn}`,
+          title,
+          student_number: sn,
+          done: false,
         });
       });
+    });
+    setTodos(prev => [...newItems, ...prev]);
+    setNewTitles("");
+    setSelectedFor([]);
+    setShowAdd(false);
+  };
 
-      if (count === 0) {
-        const catText = selectedCategoryFilter !== 'ALL' ? `「${selectedCategoryFilter}」` : '';
-        list.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-primary); padding:20px; font-weight:600;">🎉 所選條件下 ${catText} 目前沒有需處理的作業項目！</td></tr>`;
+  const toggleDone = (id) => {
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  };
+
+  const deleteTodo = (id) => {
+    setTodos(prev => prev.filter(t => t.id !== id));
+  };
+
+  const studentTodos = selectedStudent !== null
+    ? todos.filter(t => t.student_number === selectedStudent)
+    : [];
+
+  const pendingCount = (sn) => todos.filter(t => t.student_number === sn && !t.done).length;
+
+  const lineCount = newTitles.split("\n").filter(l => l.trim()).length;
+
+  return (
+    <div>
+      <h2 style={h2}>📝 待辦事項</h2>
+
+      {/* Add todo */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showAdd ? 14 : 0 }}>
+          <div style={{ fontWeight: 700, color: "#374151" }}>➕ 新增待辦事項</div>
+          <button onClick={() => setShowAdd(!showAdd)} style={{ ...btnGray, padding: "4px 14px", fontSize: 13 }}>
+            {showAdd ? "收起 ▲" : "新增 ▼"}
+          </button>
+        </div>
+        {showAdd && (
+          <>
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6 }}>每行一個事項，可一次新增多項：</div>
+              <textarea value={newTitles} onChange={e => setNewTitles(e.target.value)}
+                placeholder={"例：\n國語第三課預習\n數學練習卷簽名\n聯絡簿家長回覆"}
+                style={{ ...inp, width: "100%", height: 110, resize: "vertical", lineHeight: 1.6 }} />
+              {lineCount > 0 && (
+                <div style={{ fontSize: 12, color: "#f97316", marginTop: 4 }}>
+                  將新增 {lineCount} 項事項
+                </div>
+              )}
+            </div>
+            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 8, fontSize: 13, marginTop: 12 }}>選擇學生：</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <button onClick={selectAll} style={{ ...btnOrange, padding: "4px 12px", fontSize: 12 }}>全選</button>
+              <button onClick={clearAll} style={{ ...btnGray, padding: "4px 12px", fontSize: 12 }}>清除</button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+              {students.map(s => (
+                <button key={s.number} onClick={() => toggleForStudent(s.number)}
+                  style={{ ...chipBtn, background: selectedFor.includes(s.number) ? "#f97316" : "#f3f4f6", color: selectedFor.includes(s.number) ? "#fff" : "#374151" }}>
+                  {s.number} {s.name}
+                </button>
+              ))}
+            </div>
+            <button onClick={addTodo} disabled={lineCount === 0 || selectedFor.length === 0}
+              style={{ ...btnOrange, opacity: (lineCount === 0 || selectedFor.length === 0) ? 0.4 : 1 }}>
+              新增 {lineCount > 0 ? `${lineCount} 項` : ""}（已選 {selectedFor.length} 人）
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Student selector */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: "#374151", marginBottom: 12 }}>👤 點選學生查看待辦</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {students.map(s => {
+            const count = pendingCount(s.number);
+            return (
+              <button key={s.number} onClick={() => setSelectedStudent(selectedStudent === s.number ? null : s.number)}
+                style={{
+                  ...chipBtn,
+                  background: selectedStudent === s.number ? "#f97316" : "#f3f4f6",
+                  color: selectedStudent === s.number ? "#fff" : "#374151",
+                  position: "relative", paddingRight: count > 0 ? 28 : 14
+                }}>
+                {s.number} {s.name}
+                {count > 0 && (
+                  <span style={{
+                    position: "absolute", top: -6, right: -4,
+                    background: "#ef4444", color: "#fff", borderRadius: 10,
+                    fontSize: 10, fontWeight: 700, padding: "1px 5px", lineHeight: 1.4
+                  }}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Todo list for selected student */}
+      {selectedStudent !== null && (
+        <div style={card}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: "#f97316", marginBottom: 14 }}>
+            {students.find(s => s.number === selectedStudent)?.name} 的待辦事項
+          </div>
+          {studentTodos.length === 0
+            ? <div style={{ color: "#9ca3af", textAlign: "center", padding: 20 }}>沒有待辦事項 🎉</div>
+            : studentTodos.map(t => (
+              <div key={t.id} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "10px 0",
+                borderBottom: "1px solid #f3f4f6", opacity: t.done ? 0.5 : 1
+              }}>
+                <button onClick={() => toggleDone(t.id)} style={{
+                  width: 28, height: 28, borderRadius: "50%", border: "2px solid",
+                  borderColor: t.done ? "#4ade80" : "#d1d5db",
+                  background: t.done ? "#4ade80" : "#fff",
+                  cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0
+                }}>{t.done ? "✓" : ""}</button>
+                <span style={{ flex: 1, fontSize: 15, textDecoration: t.done ? "line-through" : "none", color: "#374151" }}>
+                  {t.title}
+                </span>
+                <button onClick={() => deleteTodo(t.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16 }}>🗑</button>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB 5: 假期作業
+// ═══════════════════════════════════════════════════════════════
+function SummerHwTab({ students, summerHw, setSummerHw }) {
+  const [categories, setCategories] = useState(["寒假", "暑假", "其他"]);
+  const [newHwName, setNewHwName] = useState("");
+  const [newHwCat, setNewHwCat] = useState("暑假");
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [catFilter, setCatFilter] = useState("全部");
+  const [filter, setFilter] = useState(null); // quick search student number
+  const [newCatName, setNewCatName] = useState("");
+  const [showCatMgr, setShowCatMgr] = useState(false);
+
+  useEffect(() => { if (!newHwCat && categories.length) setNewHwCat(categories[0]); }, [categories]);
+
+  const catColors = ["#3b82f6","#f97316","#8b5cf6","#ec4899","#14b8a6","#f59e0b","#10b981"];
+  const catColor = (cat) => catColors[categories.indexOf(cat) % catColors.length] || "#9ca3af";
+
+  const addHw = () => {
+    if (!newHwName.trim()) return;
+    const id = Date.now();
+    // 新增一個作業，所有學生預設未完成（status=0），不需要為每個學生建立紀錄，動態計算
+    setSummerHw(prev => [{ id, name: newHwName.trim(), category: newHwCat || categories[0], date: today() }, ...prev]);
+    setNewHwName("");
+  };
+
+  const delHw = (id) => setSummerHw(prev => prev.filter(h => h.id !== id));
+
+  const saveEdit = (id) => {
+    setSummerHw(prev => prev.map(h => h.id === id ? { ...h, name: editName } : h));
+    setEditId(null);
+  };
+
+  // progress is stored as summerProgress: { hw_id: { student_number: status } }
+  // We reuse summerHw array but separate "assignments" (hw defs) from "progress" (student statuses)
+  // Store: summerHw = [{id, name, category, date}], summerProgress inside each hw as .progress
+  const getStatus = (hwId, sn) => {
+    const hw = summerHw.find(h => h.id == hwId);
+    return hw?.progress?.[sn] ?? 0;
+  };
+
+  const cycleStatus = (hwId, sn) => {
+    setSummerHw(prev => prev.map(h => {
+      if (h.id != hwId) return h;
+      const cur = h.progress?.[sn] ?? 0;
+      return { ...h, progress: { ...h.progress, [sn]: (cur + 1) % 3 } };
+    }));
+  };
+
+  const setStatusDirect = (hwId, sn, val) => {
+    setSummerHw(prev => prev.map(h => {
+      if (h.id != hwId) return h;
+      return { ...h, progress: { ...h.progress, [sn]: val } };
+    }));
+  };
+
+  const addCategory = () => {
+    const n = newCatName.trim();
+    if (!n || categories.includes(n)) return;
+    setCategories(prev => [...prev, n]);
+    setNewCatName("");
+  };
+
+  const delCategory = (cat) => setCategories(prev => prev.filter(c => c !== cat));
+
+  const visibleHw = catFilter === "全部" ? summerHw : summerHw.filter(h => h.category === catFilter);
+  const unfinishedHw = filter !== null ? visibleHw.filter(h => getStatus(h.id, filter) < 2) : [];
+
+  return (
+    <div>
+      <h2 style={h2}>🏖 假期作業</h2>
+
+      {/* 分類管理 */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCatMgr ? 14 : 0 }}>
+          <div style={{ fontWeight: 700, color: "#374151" }}>🏷 分類管理</div>
+          <button onClick={() => setShowCatMgr(!showCatMgr)} style={{ ...btnGray, padding: "4px 14px", fontSize: 13 }}>
+            {showCatMgr ? "收起 ▲" : "管理分類 ▼"}
+          </button>
+        </div>
+        {showCatMgr && (
+          <>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+              {categories.map(cat => (
+                <div key={cat} style={{ display: "flex", alignItems: "center", gap: 6, background: catColor(cat) + "22", border: `1.5px solid ${catColor(cat)}`, borderRadius: 20, padding: "4px 12px" }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: catColor(cat) }}>{cat}</span>
+                  <button onClick={() => delCategory(cat)} style={{ background: "none", border: "none", cursor: "pointer", color: catColor(cat), fontSize: 14, lineHeight: 1, padding: 0 }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && addCategory()}
+                placeholder="新增分類名稱…" style={{ ...inp, flex: 1 }} />
+              <button onClick={addCategory} style={btnOrange}>新增分類</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* 新增作業 */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, color: "#374151", marginBottom: 12 }}>➕ 新增假期作業</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={newHwCat} onChange={e => setNewHwCat(e.target.value)} style={{ ...inp, minWidth: 90, background: "#fff" }}>
+            {categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input value={newHwName} onChange={e => setNewHwName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addHw()}
+            placeholder="作業名稱…" style={{ ...inp, flex: 1, minWidth: 180 }} />
+          <button onClick={addHw} style={btnOrange}>新增</button>
+        </div>
+      </div>
+
+      {/* 分類篩選 */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+        {["全部", ...categories].map(cat => (
+          <button key={cat} onClick={() => setCatFilter(cat)}
+            style={{ ...chipBtn, background: catFilter === cat ? (cat === "全部" ? "#374151" : catColor(cat)) : "#f3f4f6", color: catFilter === cat ? "#fff" : "#374151", border: catFilter === cat ? "none" : "1.5px solid #e5e7eb" }}>
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* 快速查找 */}
+      <div style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 10, color: "#374151" }}>🔍 快速查找學生未完成項目</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {students.map(s => (
+            <button key={s.number} onClick={() => setFilter(filter === s.number ? null : s.number)}
+              style={{ ...chipBtn, background: filter === s.number ? "#f97316" : "#f3f4f6", color: filter === s.number ? "#fff" : "#374151" }}>
+              {s.number} {s.name}
+            </button>
+          ))}
+          {filter !== null && <button onClick={() => setFilter(null)} style={{ ...chipBtn, background: "#ef4444", color: "#fff" }}>清除</button>}
+        </div>
+        {filter !== null && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontWeight: 700, color: "#f97316", marginBottom: 8, fontSize: 15 }}>
+              {students.find(s => s.number === filter)?.name} 未完成假期作業：
+            </div>
+            {unfinishedHw.length === 0
+              ? <div style={{ color: "#4ade80", fontWeight: 700, fontSize: 15, padding: "8px 0" }}>✅ 全部完成！</div>
+              : unfinishedHw.map(h => {
+                  const st = getStatus(h.id, filter);
+                  return (
+                    <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 8, background: "#f9f7f4", borderRadius: 10, border: "1px solid #f3f4f6" }}>
+                      <span style={{ background: catColor(h.category) + "22", color: catColor(h.category), borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{h.category}</span>
+                      <span style={{ flex: 1, fontSize: 16, fontWeight: 600, color: "#1f2937" }}>{h.name}</span>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {STATUS.map((label, i) => (
+                          <button key={i} onClick={() => setStatusDirect(h.id, filter, i)}
+                            style={{ border: "2px solid", borderColor: st === i ? ["#9ca3af","#f97316","#4ade80"][i] : "#e5e7eb", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 700, fontSize: 13, background: st === i ? STATUS_COLOR[i] : "#fff", color: st === i ? (i === 0 ? "#6b7280" : "#1f2937") : "#9ca3af", transition: "all .15s" }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+          </div>
+        )}
+      </div>
+
+      {/* 作業清單 + 全班狀態格子 */}
+      {visibleHw.length === 0 && <div style={{ color: "#9ca3af", textAlign: "center", padding: 40 }}>尚無假期作業</div>}
+      {visibleHw.map(h => (
+        <div key={h.id} style={{ ...card, borderLeft: `4px solid ${catColor(h.category)}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <span style={{ background: catColor(h.category) + "22", color: catColor(h.category), borderRadius: 10, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{h.category}</span>
+            {editId === h.id ? (
+              <>
+                <input value={editName} onChange={e => setEditName(e.target.value)} style={{ ...inp, flex: 1, minWidth: 160 }} />
+                <button onClick={() => saveEdit(h.id)} style={btnOrange}>儲存</button>
+                <button onClick={() => setEditId(null)} style={btnGray}>取消</button>
+              </>
+            ) : (
+              <>
+                <span style={{ fontWeight: 700, fontSize: 17, color: "#1f2937", flex: 1 }}>{h.name}</span>
+                <span style={{ color: "#9ca3af", fontSize: 13 }}>{h.date}</span>
+                <button onClick={() => { setEditId(h.id); setEditName(h.name); }} style={btnGray}>✏️ 改名</button>
+                <button onClick={() => delHw(h.id)} style={{ ...btnGray, color: "#ef4444" }}>🗑 刪除</button>
+              </>
+            )}
+          </div>
+          {/* 全班狀態格子 */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {students.map(s => {
+              const st = getStatus(h.id, s.number);
+              return (
+                <button key={s.number} onClick={() => cycleStatus(h.id, s.number)}
+                  title={STATUS[st]}
+                  style={{ width: 56, padding: "4px 0", border: "none", borderRadius: 8, cursor: "pointer", background: STATUS_COLOR[st], transition: "all .15s", fontWeight: 700, fontSize: 13, color: st === 0 ? "#9ca3af" : "#1f2937" }}>
+                  <div>{s.number}</div>
+                  <div style={{ fontSize: 10, fontWeight: 400 }}>{STATUS[st]}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB 6: 表格列印
+// ═══════════════════════════════════════════════════════════════
+function PrintTab({ students, assignments, progress, engProgress, categories }) {
+  const [printType, setPrintType] = useState("overview");
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [catFilter, setCatFilter] = useState("全部");
+  const [engSection, setEngSection] = useState("both"); // "both" | "first" | "second"
+
+  const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
+
+  const toggleStudent = (n) => setSelectedStudents(prev =>
+    prev.includes(n) ? prev.filter(x => x !== n) : [...prev, n]
+  );
+
+  const catColors = ["#f97316","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f59e0b","#10b981","#6366f1"];
+  const catColor = (cat) => {
+    const idx = categories.indexOf(cat);
+    return catColors[idx >= 0 ? idx % catColors.length : 0];
+  };
+
+  const filteredAssignments = catFilter === "全部"
+    ? assignments
+    : assignments.filter(a => a.category === catFilter);
+
+  // ── Build HTML string for each print type ────────────────────────────────
+  const buildOverviewHTML = () => {
+    const sortedAssign = [...filteredAssignments].sort((a, b) =>
+      (a.category || "").localeCompare(b.category || "", "zh-TW")
+    );
+    const unfinishedStudents = students.filter(s => sortedAssign.some(a => getStatus(a.id, s.number) < 2));
+    const header = `<tr><th>類別</th><th>作業</th>${unfinishedStudents.map(s =>
+      `<th><div style="font-size:9px;color:#9ca3af">${s.number}</div>${s.name}</th>`
+    ).join("")}</tr>`;
+    const rows = sortedAssign.map(a =>
+      `<tr><td style="background:${catColor(a.category)}22;color:${catColor(a.category)};font-size:10px;white-space:nowrap;font-weight:700">${a.category||""}</td><td style="text-align:left;font-weight:600">${a.name}</td>${unfinishedStudents.map(s => {
+        const st = getStatus(a.id, s.number);
+        return `<td style="background:${["#e5e7eb","#fb923c","#fee2e2"][st]};font-weight:${st < 2 ? 700 : 400}">${STATUS[st]}</td>`;
+      }).join("")}</tr>`
+    ).join("");
+    if (unfinishedStudents.length === 0) return `<h3>進度總覽（未完成）— ${today()}</h3><p style="color:#4ade80;font-weight:700">✅ 全班完成！</p>`;
+    return `<h3>進度總覽（未完成）${catFilter !== "全部" ? ` — ${catFilter}` : ""} — ${today()}</h3><table><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+  };
+
+  const buildDebtHTML = () => {
+    const targets = selectedStudents.length ? students.filter(s => selectedStudents.includes(s.number)) : students;
+    const slips = targets.map(s => {
+      const missing = filteredAssignments
+        .filter(a => getStatus(a.id, s.number) < 2)
+        .sort((a, b) => (a.category || "").localeCompare(b.category || "", "zh-TW"));
+      const rows = missing.length === 0
+        ? `<tr><td colspan="3" style="color:#4ade80;text-align:center;font-size:13px">✅ 全部完成</td></tr>`
+        : missing.map(a => {
+            const st = getStatus(a.id, s.number);
+            const isBookRecite = a.category === "背書";
+            const align = isBookRecite ? "right" : "left";
+            return `<tr><td style="background:${catColor(a.category)}22;color:${catColor(a.category)};font-size:12px;font-weight:800;white-space:nowrap;text-align:${align};padding:5px 8px">${a.category||""}</td><td style="text-align:${align};font-size:13px;font-weight:700;padding:5px 8px">${a.name}</td><td style="background:${["#e5e7eb","#fb923c","#4ade80"][st]};font-size:13px;font-weight:800;padding:5px 8px">${STATUS[st]}</td></tr>`;
+          }).join("");
+      return `<div class="card"><div class="card-header">${s.number} 號 ${s.name}&nbsp;<span style="font-weight:500;font-size:12px;color:#f97316">未完成：${missing.length} 項</span></div><table><thead><tr><th style="font-size:12px;padding:5px 8px">分類</th><th style="font-size:12px;padding:5px 8px">作業</th><th style="font-size:12px;padding:5px 8px">狀態</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join("");
+    return `<h3>學生欠繳單${catFilter !== "全部" ? ` — ${catFilter}` : ""} — ${today()}</h3><div class="four-up">${slips}</div>`;
+  };
+
+  const buildEnglishHTML = () => {
+    const allSections = [["U1～5",[1,2,3,4,5]],["U6～10",[6,7,8,9,10]]];
+    const sections = engSection === "first" ? [allSections[0]] : engSection === "second" ? [allSections[1]] : allSections;
+    return `<h3>英文進度總覽 — ${today()}</h3>` + sections.map(([label, units]) => {
+      const ths = units.flatMap(u => [1,2,3,4].map(p => `<th>U${u}-P${p}</th>`)).join("");
+      const rows = students.map(s =>
+        `<tr><td>${s.number}</td><td>${s.name}</td>${units.flatMap(u => [1,2,3,4].map(p => {
+          const done = !!engProgress[`U${u}-P${p}-${s.number}`];
+          return `<td style="background:${done ? "#4ade80" : "#fee2e2"};font-size:10px">${done ? "✓" : ""}</td>`;
+        })).join("")}</tr>`
+      ).join("");
+      return `<div style="margin-bottom:20px"><div style="font-weight:700;margin-bottom:6px">${label}</div><table><thead><tr><th>號</th><th>姓名</th>${ths}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join("");
+  };
+
+  const openPrintWindow = () => {
+    let bodyHTML = "";
+    if (printType === "overview") bodyHTML = buildOverviewHTML();
+    else if (printType === "debt") bodyHTML = buildDebtHTML();
+    else bodyHTML = buildEnglishHTML();
+
+    const css = `
+      *{box-sizing:border-box}
+      body{font-family:sans-serif;font-size:12px;margin:20px;color:#1f2937}
+      h3{color:#f97316;margin:0 0 14px;font-size:16px}
+      table{border-collapse:collapse;width:100%;margin-bottom:12px}
+      th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}
+      th{background:#fed7aa;font-weight:700;font-size:11px}
+      .four-up{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+      .card{border:2px solid #f97316;border-radius:8px;padding:12px;page-break-inside:avoid}
+      .card-header{font-weight:700;border-bottom:1px solid #fed7aa;padding-bottom:6px;margin-bottom:8px;font-size:13px}
+      @media print{
+        body{margin:10px}
+        @page{margin:10mm}
       }
-    }
+    `;
+    const w = window.open("", "print_preview", "width=900,height=720,scrollbars=yes,resizable=yes");
+    if (!w) { alert("請允許瀏覽器開啟彈出視窗後再試"); return; }
+    w.document.open();
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>列印預覽</title><style>${css}</style></head><body>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #fed7aa">
+        <div style="font-size:18px;font-weight:800;color:#f97316">📚 班務作業系統</div>
+        <div style="display:flex;gap:10px">
+          <button onclick="window.print()" style="background:#f97316;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:14px;font-weight:700;cursor:pointer">🖨 列印</button>
+          <button onclick="window.close()" style="background:#f3f4f6;color:#374151;border:none;border-radius:6px;padding:8px 16px;font-size:14px;cursor:pointer">✕ 關閉</button>
+        </div>
+      </div>
+      ${bodyHTML}
+    </body></html>`);
+    w.document.close();
+    w.focus();
+  };
 
-    function cycleCumulativeStatus(studentName, taskId) {
-      const key = `${studentName}_${taskId}`;
-      const current = state.records[key] || 'unsubmitted';
-      
-      let next = 'correcting';
-      if (current === 'correcting') next = 'done';
-      else if (current === 'done') next = 'unsubmitted';
-      
-      setTaskStatus(studentName, taskId, next);
-    }
+  // ── In-page preview (lightweight) ─────────────────────────────────────────
+  const PreviewOverview = () => {
+    const sortedAssign = [...filteredAssignments].sort((a, b) =>
+      (a.category || "").localeCompare(b.category || "", "zh-TW")
+    );
+    const unfinishedStudents = students.filter(s => sortedAssign.some(a => getStatus(a.id, s.number) < 2));
+    return (
+      <div style={{ overflowX: "auto" }}>
+        <h3 style={{ color: "#f97316", marginBottom: 10 }}>進度總覽（未完成）{catFilter !== "全部" ? ` — ${catFilter}` : ""} — {today()}</h3>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12 }}>
+          <thead>
+            <tr>
+              <th style={{ ...pth, minWidth: 60 }}>類別</th>
+              <th style={{ ...pth, minWidth: 80 }}>作業</th>
+              {unfinishedStudents.map(s => (
+                <th key={s.number} style={{ ...pth, minWidth: 44 }}>
+                  <div style={{ fontSize: 9, color: "#9ca3af" }}>{s.number}</div>
+                  {s.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {unfinishedStudents.length === 0
+              ? <tr><td colSpan={sortedAssign.length + 2} style={{ ...ptd, color: "#4ade80", textAlign: "center" }}>✅ 全班完成！</td></tr>
+              : sortedAssign.map(a => (
+                <tr key={a.id}>
+                  <td style={{ ...ptd, background: catColor(a.category) + "22", color: catColor(a.category), fontWeight: 700, fontSize: 10, whiteSpace: "nowrap" }}>{a.category}</td>
+                  <td style={{ ...ptd, textAlign: "left", fontWeight: 600 }}>{a.name}</td>
+                  {unfinishedStudents.map(s => {
+                    const st = getStatus(a.id, s.number);
+                    return (
+                      <td key={s.number} style={{ ...ptd, background: STATUS_COLOR[st], fontSize: 11, fontWeight: st < 2 ? 700 : 400, color: st === 0 ? "#9ca3af" : "#1f2937" }}>
+                        {STATUS[st]}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
-    function setTaskStatus(studentName, taskId, newStatus) {
-      state.records[`${studentName}_${taskId}`] = newStatus;
-      saveData();
-      renderCumulative();
-      renderDailyBoard();
-    }
+  const PreviewDebt = () => {
+    const targets = selectedStudents.length ? students.filter(s => selectedStudents.includes(s.number)) : students;
+    return (
+      <div>
+        <h3 style={{ color: "#f97316", marginBottom: 10 }}>學生欠繳單 — {today()}</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {targets.map(s => {
+            const missing = filteredAssignments
+              .filter(a => getStatus(a.id, s.number) < 2)
+              .sort((a, b) => (a.category || "").localeCompare(b.category || "", "zh-TW"));
+            return (
+              <div key={s.number} style={{ border: "2px solid #f97316", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontWeight: 800, borderBottom: "1px solid #fed7aa", paddingBottom: 4, marginBottom: 8, fontSize: 15, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{s.number} 號 {s.name}</span>
+                  <span style={{ fontWeight: 600, fontSize: 12, color: "#f97316" }}>未完成：{missing.length} 項</span>
+                </div>
+                <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
+                  <thead><tr><th style={{ ...pth, fontSize: 12 }}>分類</th><th style={{ ...pth, fontSize: 12 }}>作業</th><th style={{ ...pth, fontSize: 12 }}>狀態</th></tr></thead>
+                  <tbody>
+                    {missing.length === 0
+                      ? <tr><td colSpan={3} style={{ ...ptd, color: "#4ade80", textAlign: "center", fontSize: 13 }}>✅ 全部完成</td></tr>
+                      : missing.map(a => {
+                          const st = getStatus(a.id, s.number);
+                          const isBookRecite = a.category === "背書";
+                          const align = isBookRecite ? "right" : "left";
+                          return (
+                            <tr key={a.id}>
+                              <td style={{ ...ptd, background: catColor(a.category) + "22", color: catColor(a.category), fontSize: 12, fontWeight: 800, whiteSpace: "nowrap", textAlign: align }}>{a.category}</td>
+                              <td style={{ ...ptd, textAlign: align, fontSize: 13, fontWeight: 700, color: "#1f2937" }}>{a.name}</td>
+                              <td style={{ ...ptd, background: STATUS_COLOR[st], fontSize: 13, fontWeight: 800 }}>{STATUS[st]}</td>
+                            </tr>
+                          );
+                        })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
-    /* 🔥 UX 亮點 2：管理/修改歷史任務列表 Modal */
-    function openManageTasksModal() {
-      renderManageTasksList();
-      document.getElementById('manage-tasks-modal').style.display = 'flex';
-    }
+  const PreviewEnglish = () => {
+    const allSections = [["U1～5",[1,2,3,4,5]],["U6～10",[6,7,8,9,10]]];
+    const sections = engSection === "first" ? [allSections[0]] : engSection === "second" ? [allSections[1]] : allSections;
+    return (
+      <div style={{ overflowX: "auto" }}>
+        <h3 style={{ color: "#f97316", marginBottom: 10 }}>英文進度總覽 — {today()}</h3>
+        {sections.map(([label, units]) => (
+          <div key={label} style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+            <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 11 }}>
+              <thead>
+                <tr>
+                  <th style={pth}>號</th><th style={pth}>姓名</th>
+                  {units.flatMap(u => [1,2,3,4].map(p => <th key={`${u}${p}`} style={pth}>U{u}-P{p}</th>))}
+                </tr>
+              </thead>
+              <tbody>
+                {students.map(s => (
+                  <tr key={s.number}>
+                    <td style={ptd}>{s.number}</td><td style={ptd}>{s.name}</td>
+                    {units.flatMap(u => [1,2,3,4].map(p => {
+                      const done = !!engProgress[`U${u}-P${p}-${s.number}`];
+                      return <td key={`${u}${p}`} style={{ ...ptd, background: done ? "#4ade80" : "#fee2e2" }}>{done ? "✓" : ""}</td>;
+                    }))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
-    function closeManageTasksModal() {
-      document.getElementById('manage-tasks-modal').style.display = 'none';
-      renderTaskFilterOptions();
-      renderCumulative();
-      renderDailyBoard();
-    }
+  return (
+    <div>
+      <h2 style={h2}>🖨 表格列印</h2>
 
-    function renderManageTasksList() {
-      const tbody = document.getElementById('manage-tasks-list');
-      tbody.innerHTML = '';
-      if (state.tasks.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:10px;">目前尚無任何任務項目</td></tr>`;
-        return;
-      }
-      state.tasks.forEach(task => {
-        tbody.innerHTML += `
-          <tr>
-            <td><input type="date" value="${task.date}" style="padding:4px; font-size:0.8rem; border:1px solid var(--border-color); border-radius:4px; width:100%;" onchange="updateTaskDateInModal(${task.id}, this.value)"></td>
-            <td><span class="task-category-tag">${task.category}</span></td>
-            <td><input type="text" value="${task.name}" style="padding:4px; font-size:0.85rem; border:1px solid var(--border-color); border-radius:4px; width:95%;" onchange="updateTaskNameInModal(${task.id}, this.value)"></td>
-            <td>
-              <button style="color:var(--color-red); border:1px solid #f5babb; background:#fdf2f2; padding:4px 8px; border-radius:6px; cursor:pointer;" onclick="deleteTaskInModal(${task.id})">刪除</button>
-            </td>
-          </tr>`;
-      });
-    }
+      <div style={card}>
+        {/* Print type */}
+        <div style={{ fontWeight: 700, color: "#374151", marginBottom: 10 }}>列印類型</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20 }}>
+          {[["overview","A. 進度總覽"],["debt","B. 學生欠繳單"],["english","C. 英文進度"]].map(([v,l]) => (
+            <button key={v} onClick={() => setPrintType(v)}
+              style={{ ...chipBtn, background: printType === v ? "#f97316" : "#f3f4f6", color: printType === v ? "#fff" : "#374151", padding: "8px 18px", fontWeight: 700 }}>
+              {l}
+            </button>
+          ))}
+        </div>
 
-    function updateTaskNameInModal(taskId, newName) {
-      const task = state.tasks.find(t => t.id === taskId);
-      if (task && newName.trim()) {
-        task.name = newName.trim();
-        saveData();
-      }
-    }
+        {/* Category filter (not for english) */}
+        {printType !== "english" && (
+          <>
+            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 10 }}>篩選分類</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {["全部", ...categories].map(cat => (
+                <button key={cat} onClick={() => setCatFilter(cat)}
+                  style={{ ...chipBtn, background: catFilter === cat ? (cat === "全部" ? "#374151" : catColor(cat)) : "#f3f4f6", color: catFilter === cat ? "#fff" : "#374151", border: catFilter === cat ? "none" : "1.5px solid #e5e7eb" }}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-    function updateTaskDateInModal(taskId, newDate) {
-      const task = state.tasks.find(t => t.id === taskId);
-      if (task && newDate) {
-        task.date = newDate;
-        saveData();
-      }
-    }
+        {/* English section selector */}
+        {printType === "english" && (
+          <>
+            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 10 }}>選擇範圍</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {[["both","全部（U1～10）"],["first","只印 U1～5"],["second","只印 U6～10"]].map(([v,l]) => (
+                <button key={v} onClick={() => setEngSection(v)}
+                  style={{ ...chipBtn, background: engSection === v ? "#f97316" : "#f3f4f6", color: engSection === v ? "#fff" : "#374151", border: engSection === v ? "none" : "1.5px solid #e5e7eb", padding: "8px 18px", fontWeight: 700 }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {printType === "debt" && (
+          <>
+            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 10 }}>選擇學生（不選則全班）</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {students.map(s => (
+                <button key={s.number} onClick={() => toggleStudent(s.number)}
+                  style={{ ...chipBtn, background: selectedStudents.includes(s.number) ? "#f97316" : "#f3f4f6", color: selectedStudents.includes(s.number) ? "#fff" : "#374151" }}>
+                  {s.number} {s.name}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-    function deleteTaskInModal(taskId) {
-      if (confirm("確定要徹底刪除此項作業任務及其所有紀錄嗎？")) {
-        deleteTask(taskId);
-        renderManageTasksList();
-      }
-    }
+        <button onClick={openPrintWindow} style={{ ...btnOrange, padding: "10px 28px", fontSize: 15 }}>
+          🖨 開啟列印視窗
+        </button>
+        <span style={{ marginLeft: 12, color: "#9ca3af", fontSize: 13 }}>彈出視窗內可按列印或另存PDF</span>
+      </div>
 
-    function deleteTask(taskId) {
-      state.tasks = state.tasks.filter(t => t.id !== taskId);
-      for (let key in state.records) {
-        if (key.endsWith(`_${taskId}`)) delete state.records[key];
-      }
-      saveData();
-      renderDailyBoard();
-    }
+      {/* In-page preview */}
+      <div style={{ ...card, padding: 24 }}>
+        <div style={{ fontWeight: 700, color: "#6b7280", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          👁 預覽
+          {catFilter !== "全部" && printType !== "english" && (
+            <span style={{ background: "#f97316", color: "#fff", borderRadius: 10, padding: "2px 10px", fontSize: 12 }}>分類：{catFilter}</span>
+          )}
+        </div>
+        <div style={{ border: "1px dashed #fed7aa", borderRadius: 8, padding: 16 }}>
+          {printType === "overview" && <PreviewOverview />}
+          {printType === "debt" && <PreviewDebt />}
+          {printType === "english" && <PreviewEnglish />}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-    function openCategoryModal() {
-      renderCategoryList();
-      document.getElementById('category-modal').style.display = 'flex';
-    }
+const pth = { border: "1px solid #ccc", padding: "4px 6px", background: "#fed7aa", fontWeight: 700, textAlign: "center", fontSize: 11 };
+const ptd = { border: "1px solid #e5e7eb", padding: "3px 6px", textAlign: "center", fontSize: 11 };
 
-    function closeCategoryModal() {
-      document.getElementById('category-modal').style.display = 'none';
-      renderCategoryFilterBar();
-    }
-
-    function renderCategoryList() {
-      const list = document.getElementById('category-list');
-      list.innerHTML = '';
-      state.categories.forEach((cat, index) => {
-        list.innerHTML += `
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <input type="text" value="${cat}" style="width:70%; padding:6px;" onchange="updateCategory(${index}, this.value)">
-            <button style="color:var(--color-red); border:none; background:none; cursor:pointer;" onclick="deleteCategory(${index})">刪除</button>
-          </div>`;
-      });
-    }
-
-    function addCategory() {
-      const input = document.getElementById('new-category-input');
-      const val = input.value.trim();
-      if (val && !state.categories.includes(val)) {
-        state.categories.push(val);
-        input.value = '';
-        saveData();
-        renderCategoryList();
-        renderCategoryFilterBar();
-      }
-    }
-
-    function updateCategory(index, newVal) {
-      newVal = newVal.trim();
-      if (newVal) {
-        state.categories[index] = newVal;
-        saveData();
-        renderCategoryFilterBar();
-      }
-    }
-
-    function deleteCategory(index) {
-      if (confirm(`確定要刪除「${state.categories[index]}」分類嗎？`)) {
-        state.categories.splice(index, 1);
-        saveData();
-        renderCategoryList();
-        renderCategoryFilterBar();
-      }
-    }
-
-    function openTaskModal() {
-      if (!state.categories || state.categories.length === 0) {
-        alert("請先至少建立一個科目分類！");
-        openCategoryModal();
-        return;
-      }
-      
-      document.getElementById('task-date-input').value = getTodayString();
-
-      const catSelect = document.getElementById('task-category-select');
-      catSelect.innerHTML = '';
-      state.categories.forEach(cat => {
-        const selected = (selectedCategoryFilter === cat) ? 'selected' : '';
-        catSelect.innerHTML += `<option value="${cat}" ${selected}>${cat}</option>`;
-      });
-
-      const groupSelect = document.getElementById('task-target-group-select');
-      groupSelect.innerHTML = '<option value="ALL">全班學生</option>';
-      const allGroups = getAllGroupTags();
-      allGroups.forEach(g => {
-        groupSelect.innerHTML += `<option value="${g}">指定 [${g}] 學生</option>`;
-      });
-
-      document.getElementById('task-name-input').value = '';
-      document.getElementById('task-modal').style.display = 'flex';
-    }
-
-    function closeTaskModal() {
-      document.getElementById('task-modal').style.display = 'none';
-    }
-
-    function saveNewTask() {
-      const date = document.getElementById('task-date-input').value || getTodayString();
-      const category = document.getElementById('task-category-select').value;
-      const targetGroup = document.getElementById('task-target-group-select').value;
-      const name = document.getElementById('task-name-input').value.trim();
-      if (!name) return alert("請輸入作業名稱！");
-
-      const newTaskId = Date.now();
-      state.tasks.push({ id: newTaskId, date, category, targetGroup, name });
-
-      state.students.forEach(s => {
-        if (isStudentAssignedToTask(s, { targetGroup })) {
-          state.records[`${s.name}_${newTaskId}`] = 'unsubmitted';
-        }
-      });
-
-      saveData();
-      closeTaskModal();
-      renderDailyBoard();
-    }
-
-    function renderPrintCheckboxes() {
-      const container = document.getElementById('print-checkboxes');
-      container.innerHTML = '';
-      if (state.students.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted);">尚無學生名單可供選擇。</p>`;
-        return;
-      }
-      state.students.forEach(s => {
-        container.innerHTML += `<label><input type="checkbox" class="print-chk" value="${s.name}" checked> ${s.name}</label>`;
-      });
-    }
-
-    function selectAllPrint(select) {
-      document.querySelectorAll('.print-chk').forEach(chk => chk.checked = select);
-    }
-
-    /* 🔥 安全的 A4 列印繪製 logic */
-    function triggerPrint() {
-      const selectedStudents = Array.from(document.querySelectorAll('.print-chk:checked')).map(cb => cb.value);
-      if (selectedStudents.length === 0) return alert("請至少選取一位學生！");
-
-      const printContainer = document.getElementById('print-container');
-      printContainer.innerHTML = '';
-
-      const ITEMS_PER_CARD = 8;
-      const allCards = [];
-
-      selectedStudents.forEach(studentName => {
-        const studentObj = state.students.find(s => s.name === studentName) || { name: studentName, groups: [] };
-        const items = [];
-
-        state.tasks.forEach(task => {
-          if (!isStudentAssignedToTask(studentObj, task)) return;
-
-          const status = state.records[`${studentName}_${task.id}`] || 'unsubmitted';
-          if (status === 'unsubmitted' || status === 'correcting') {
-            items.push({
-              category: task.category,
-              name: task.name,
-              date: task.date,
-              status: status
-            });
-          }
-        });
-
-        if (items.length === 0) {
-          allCards.push({
-            student: studentName,
-            pageLabel: '',
-            contentHtml: `<p style="margin-top:15px; color:green; font-size:1.2rem; font-weight:bold;">目前作業全數完成！</p>`
-          });
-        } else {
-          const totalChunks = Math.ceil(items.length / ITEMS_PER_CARD);
-
-          for (let c = 0; c < totalChunks; c++) {
-            const chunkItems = items.slice(c * ITEMS_PER_CARD, (c + 1) * ITEMS_PER_CARD);
-            const pageLabel = totalChunks > 1 ? ` (${c + 1}/${totalChunks})` : '';
-
-            const catMap = {};
-            chunkItems.forEach(item => {
-              if (!catMap[item.category]) catMap[item.category] = [];
-              catMap[item.category].push(item);
-            });
-
-            let cardContentHtml = '';
-            for (let cat in catMap) {
-              cardContentHtml += `<div class="print-cat">${cat}</div><ul class="print-list">`;
-              catMap[cat].forEach(item => {
-                const tag = item.status === 'unsubmitted' ? '<span class="status-tag-print" style="color:#F37748;">(未繳)</span>' : '<span class="status-tag-print" style="color:#8a4321;">(訂正)</span>';
-                const dateStr = item.date ? `[${item.date}] ` : '';
-                cardContentHtml += `<li>${dateStr}${item.name} ${tag}</li>`;
-              });
-              cardContentHtml += `</ul>`;
-            }
-
-            allCards.push({
-              student: studentName,
-              pageLabel: pageLabel,
-              contentHtml: cardContentHtml
-            });
-          }
-        }
-      });
-
-      let fullPagesHtml = '';
-      for (let i = 0; i < allCards.length; i += 4) {
-        const pageCards = allCards.slice(i, i + 4);
-        let pageCardsHtml = '';
-
-        pageCards.forEach(card => {
-          pageCardsHtml += `
-            <div class="print-card">
-              <h3>${card.student}${card.pageLabel} - 欠繳與訂正清單</h3>
-              ${card.contentHtml}
-            </div>`;
-        });
-
-        fullPagesHtml += `<div class="print-page">${pageCardsHtml}</div>`;
-      }
-
-      printContainer.innerHTML = fullPagesHtml;
-      
-      setTimeout(() => {
-        window.print();
-      }, 100);
-    }
-
-    function openStudentModal() {
-      renderStudentEditList();
-      document.getElementById('student-modal').style.display = 'flex';
-    }
-
-    function closeStudentModal() {
-      document.getElementById('student-modal').style.display = 'none';
-      renderDailyBoard();
-    }
-
-    function saveBatchStudents() {
-      const raw = document.getElementById('batch-student-input').value;
-      if (!raw.trim()) return;
-      
-      const newNames = raw.split(/[\n,，]/).map(s => s.trim()).filter(s => s.length > 0);
-      newNames.forEach(name => {
-        if (!state.students.some(s => s.name === name)) {
-          state.students.push({ name: name, groups: [] });
-        }
-      });
-
-      document.getElementById('batch-student-input').value = '';
-      saveData();
-      renderStudentEditList();
-    }
-
-    function renderStudentEditList() {
-      const tbody = document.getElementById('student-edit-list');
-      tbody.innerHTML = '';
-      if (state.students.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:10px;">目前無學生名單</td></tr>`;
-        return;
-      }
-      state.students.forEach((s, index) => {
-        const groupStr = (s.groups && Array.isArray(s.groups)) ? s.groups.join(', ') : '';
-        tbody.innerHTML += `
-          <tr>
-            <td><input type="text" value="${s.name}" style="padding:6px; border-radius:6px; border:1px solid var(--border-color); width:95%;" onchange="updateStudentName(${index}, this.value)"></td>
-            <td><input type="text" value="${groupStr}" placeholder="如: A組, 加強組" style="padding:6px; border-radius:6px; border:1px solid var(--border-color); width:95%;" onchange="updateStudentGroups(${index}, this.value)"></td>
-            <td style="text-align:center;"><button style="color:var(--color-red); border:none; background:none; cursor:pointer;" onclick="deleteStudent(${index})">刪除</button></td>
-          </tr>`;
-      });
-    }
-
-    function updateStudentName(index, newName) {
-      newName = newName.trim();
-      const oldName = state.students[index].name;
-      if (!newName || newName === oldName) return;
-
-      state.students[index].name = newName;
-      for (let key in state.records) {
-        if (key.startsWith(`${oldName}_`)) {
-          const taskId = key.split('_')[1];
-          state.records[`${newName}_${taskId}`] = state.records[key];
-          delete state.records[key];
-        }
-      }
-      saveData();
-      renderStudentEditList();
-    }
-
-    function updateStudentGroups(index, rawGroups) {
-      const groups = rawGroups.split(/[,，]/).map(g => g.trim()).filter(g => g.length > 0);
-      state.students[index].groups = groups;
-      saveData();
-    }
-
-    function deleteStudent(index) {
-      if (confirm(`確定刪除「${state.students[index].name}」嗎？`)) {
-        state.students.splice(index, 1);
-        saveData();
-        renderStudentEditList();
-      }
-    }
-
-    function syncCloud() {
-      if (GAS_WEB_APP_URL.includes("YOUR_GOOGLE")) return alert("請先將程式碼中的 GAS_WEB_APP_URL 替換為你的 Web App URL！");
-      fetch(GAS_WEB_APP_URL)
-        .then(res => res.json())
-        .then(remote => {
-          state = remote;
-          saveData();
-          init();
-          alert("雲端同步完成！");
-        });
-    }
-
-    // 系統初始化執行
-    init();
-  </script>
-</body>
-</html>
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const h2 = { fontSize: 22, fontWeight: 800, color: "#1f2937", marginBottom: 18, display: "flex", alignItems: "center", gap: 8 };
+const card = { background: "#fff", borderRadius: 14, padding: 20, marginBottom: 18, boxShadow: "0 1px 8px #0000000d", border: "1px solid #f3f4f6" };
+const inp = { border: "1.5px solid #d1d5db", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", fontFamily: "inherit" };
+const btnOrange = { background: "#f97316", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontWeight: 700, cursor: "pointer", fontSize: 14 };
+const btnGray = { background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 600, cursor: "pointer", fontSize: 14 };
+const chipBtn = { border: "none", borderRadius: 20, padding: "5px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all .15s" };
