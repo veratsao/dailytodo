@@ -25,7 +25,7 @@
     const { useState, useEffect, useRef, useCallback } = React;
 
     // ─── Google Apps Script API ───────────────────────────────────────────────────
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwaKFRN6f0KQzR7HrEhXtA1RWBUzG0u0Wpg4KPefelgz1ByYFvqhmeakyrDCTTQuLeVag/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzPFanV8RS3C4nDVv36zAJHOsuaIBRFCjk8bl9CdZs8xdkRN5YYkCY5lsffDc7tmOSjUw/exec";
 
     async function gsLoad() {
       const res = await fetch(`${GAS_URL}?action=load&_=${Date.now()}`, { cache: "no-store" });
