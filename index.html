@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>班務作業系統</title>
+  <title>daily-todo</title>
   <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -25,25 +25,54 @@
     const { useState, useEffect, useRef, useCallback } = React;
 
     // ─── Google Apps Script API ───────────────────────────────────────────────────
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzPFanV8RS3C4nDVv36zAJHOsuaIBRFCjk8bl9CdZs8xdkRN5YYkCY5lsffDc7tmOSjUw/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby-Afqm_S9Efdbqaw-m0L5c8Ja5SH0syfpbh8r_u-A1VMMeE9qWFGQjub1OXDG2Z25Qjg/exec";
+
+    async function gsFetchWithRetry(fn, retries = 2, delayMs = 1200) {
+      let lastErr;
+      for (let i = 0; i <= retries; i++) {
+        try {
+          return await fn();
+        } catch (e) {
+          lastErr = e;
+          if (i < retries) await new Promise(r => setTimeout(r, delayMs));
+        }
+      }
+      throw lastErr;
+    }
 
     async function gsLoad() {
-      const res = await fetch(`${GAS_URL}?action=load&_=${Date.now()}`, { cache: "no-store" });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      return data;
+      return gsFetchWithRetry(async () => {
+        const res = await fetch(`${GAS_URL}?action=load&_=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          throw new Error("回應非 JSON，請確認 Apps Script 已正確部署為網頁應用程式");
+        }
+        if (data.error) throw new Error(data.error);
+        return data;
+      });
     }
 
     async function gsSave(payload) {
       try {
-        const res = await fetch(GAS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload)
+        return await gsFetchWithRetry(async () => {
+          const res = await fetch(GAS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          let result;
+          try {
+            result = await res.json();
+          } catch (e) {
+            throw new Error("回應非 JSON，請確認 Apps Script 已正確部署為網頁應用程式");
+          }
+          if (result.error) throw new Error(result.error);
+          return result;
         });
-        const result = await res.json();
-        if (result.error) throw new Error(result.error);
-        return result;
       } catch (e) {
         console.error("gsSave Error:", e);
         throw e;
@@ -57,10 +86,11 @@
       const day = String(d.getDate()).padStart(2, '0');
       return `${d.getFullYear()}-${month}-${day}`;
     };
-    const STATUS = ["未繳", "訂正", "完成"];
-    const STATUS_COLOR = ["#e5e7eb", "#fb923c", "#4ade80"];
+    const STATUS_TEXT = ["", "訂", "OK"];
+    const STATUS_COLOR = ["#fff", "#fb923c", "#414141"];
     const TEACHER_PASSWORD = "800914";
-    const TABS = ["學生名單", "學生分組", "每日進度", "英文作業", "待辦事項", "表格列印"];
+    const READONLY_TEACHER_PASSWORD = "123456"; // 唯讀老師帳號密碼
+    const TABS = ["即時進度", "學生名單", "學生分組", "每日進度", "英文作業", "待辦事項", "表格列印"];
     const DEFAULT_CATEGORIES = ["評量", "背書", "考卷", "其他"];
 
     const card = { background: "#fff", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" };
@@ -73,7 +103,7 @@
     // ═══════════════════════════════════════════════════════════════
     // LOGIN SCREEN
     // ═══════════════════════════════════════════════════════════════
-    function LoginScreen({ students, onTeacherLogin, onParentLogin }) {
+    function LoginScreen({ students, onTeacherLogin, onReadOnlyLogin, onParentLogin }) {
       const [input, setInput] = useState("");
       const [error, setError] = useState("");
       const [showPw, setShowPw] = useState(false);
@@ -82,6 +112,10 @@
         setError("");
         if (input === TEACHER_PASSWORD) {
           onTeacherLogin();
+          return;
+        }
+        if (input === READONLY_TEACHER_PASSWORD) {
+          onReadOnlyLogin();
           return;
         }
         const sn = Number(input);
@@ -123,7 +157,7 @@
     // ═══════════════════════════════════════════════════════════════
     // PARENT VIEW
     // ═══════════════════════════════════════════════════════════════
-    function ParentView({ student, assignments, progress, setProgress, engProgress, todos, onLogout, onPasswordChange }) {
+    function ParentView({ student, assignments, progress, setProgress, engProgress, todos, onLogout, onPasswordChange, syncStatus }) {
       const [showChangePw, setShowChangePw] = useState(false);
       const [newPw, setNewPw] = useState("");
       const [confirmPw, setConfirmPw] = useState("");
@@ -142,8 +176,10 @@
       };
 
       const handleBookDone = (assignmentId) => {
-        const newProgress = { ...progress, [assignmentId]: { ...progress[assignmentId], [student.number]: 2 } };
-        setProgress(newProgress);
+        setProgress(prev => ({
+          ...prev,
+          [assignmentId]: { ...prev[assignmentId], [student.number]: 2 }
+        }));
       };
 
       const studentAssign = assignments.filter(a => {
@@ -171,7 +207,9 @@
               <div style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>📚 班務作業系統</div>
               <div style={{ color: "#fed7aa", fontSize: 13 }}>{student.number} 號 {student.name} 的學習進度</div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {syncStatus === "saving" && <span style={{ color: "#fff", fontSize: 12 }}>🔄 同步中...</span>}
+              {syncStatus === "synced" && <span style={{ color: "#fff", fontSize: 12 }}>☁️ 已更新</span>}
               <button onClick={() => setShowChangePw(!showChangePw)} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: 13 }}>🔑 改密碼</button>
               <button onClick={onLogout} style={{ background: "#fff", color: "#f97316", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>登出</button>
             </div>
@@ -213,8 +251,8 @@
                               ✓ 背完了
                             </button>
                           ) : (
-                            <span style={{ background: STATUS_COLOR[st], borderRadius: 8, padding: "3px 12px", fontWeight: 700, fontSize: 13, color: st === 0 ? "#9ca3af" : "#1f2937", whiteSpace: "nowrap" }}>
-                              {STATUS[st]}
+                            <span style={{ background: st === 1 ? "#fb923c" : (st === 2 ? "#414141" : "#e5e7eb"), color: st === 2 ? "#fff" : "#1f2937", borderRadius: 8, padding: "3px 12px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap" }}>
+                              {st === 1 ? "訂" : (st === 2 ? "OK" : "未繳")}
                             </span>
                           )}
                         </div>
@@ -299,74 +337,96 @@
       const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
       const [todos, setTodos] = useState([]);
       const [syncStatus, setSyncStatus] = useState("synced"); 
+      const [lastSyncError, setLastSyncError] = useState("");
       const [loadMsg, setLoadMsg] = useState("載入中…");
       const [loaded, setLoaded] = useState(false);
       const [role, setRole] = useState(null);
       const [currentStudent, setCurrentStudent] = useState(null);
+      const [lastFetchTime, setLastFetchTime] = useState("");
 
+      const applyRemoteData = useCallback((data) => {
+        const s = (data.students || []).map(s => ({
+          number: Number(s.number),
+          name: String(s.name),
+          password: s.password ? String(s.password) : String(Number(s.number)),
+        }));
+        setStudents(s);
+
+        const g = (data.groups || []).map(grp => ({
+          id: String(grp.id),
+          name: String(grp.name),
+          student_numbers: grp.student_numbers ? JSON.parse(grp.student_numbers) : []
+        }));
+        setGroups(g);
+
+        const a = (data.assignments || []).map(a => ({
+          id: Number(a.id),
+          name: String(a.name),
+          date: a.date ? String(a.date) : "",
+          category: String(a.category || "其他"),
+          assigned_to: a.assigned_to ? JSON.parse(a.assigned_to) : []
+        }));
+        setAssignments(a);
+
+        const pm = {};
+        (data.progress || []).forEach(({ assignment_id, student_number, status }) => {
+          const aid = Number(assignment_id);
+          if (!pm[aid]) pm[aid] = {};
+          pm[aid][Number(student_number)] = Number(status);
+        });
+        setProgress(prev => ({ ...prev, ...pm }));
+
+        const em = {};
+        (data.english_progress || []).forEach(({ key, date }) => { em[key] = String(date); });
+        setEngProgress(prev => ({ ...prev, ...em }));
+
+        const cats = (data.categories || []).map(c => String(c.name)).filter(Boolean);
+        if (cats.length) setCategories(cats);
+
+        const todosData = (data.todos || []).map(t => ({
+          id: String(t.id),
+          title: String(t.title),
+          student_number: Number(t.student_number),
+          done: t.done === "true" || t.done === true,
+        }));
+        setTodos(todosData);
+        setLastFetchTime(new Date().toLocaleTimeString());
+      }, []);
+
+      // 首次數據載入
       useEffect(() => {
         (async () => {
           try {
             const data = await gsLoad();
-            const s = (data.students || []).map(s => ({
-              number: Number(s.number),
-              name: String(s.name),
-              password: s.password ? String(s.password) : String(Number(s.number)),
-            }));
-            setStudents(s);
-
-            const g = (data.groups || []).map(grp => ({
-              id: String(grp.id),
-              name: String(grp.name),
-              student_numbers: grp.student_numbers ? JSON.parse(grp.student_numbers) : []
-            }));
-            setGroups(g);
-
-            const a = (data.assignments || []).map(a => ({
-              id: Number(a.id),
-              name: String(a.name),
-              date: a.date ? String(a.date) : "",
-              category: String(a.category || "其他"),
-              assigned_to: a.assigned_to ? JSON.parse(a.assigned_to) : []
-            }));
-            setAssignments(a);
-
-            const pm = {};
-            (data.progress || []).forEach(({ assignment_id, student_number, status }) => {
-              const aid = Number(assignment_id);
-              if (!pm[aid]) pm[aid] = {};
-              pm[aid][Number(student_number)] = Number(status);
-            });
-            setProgress(pm);
-
-            const em = {};
-            (data.english_progress || []).forEach(({ key, date }) => { em[key] = String(date); });
-            setEngProgress(em);
-
-            const cats = (data.categories || []).map(c => String(c.name)).filter(Boolean);
-            if (cats.length) setCategories(cats);
-
-            const todosData = (data.todos || []).map(t => ({
-              id: String(t.id),
-              title: String(t.title),
-              student_number: Number(t.student_number),
-              done: t.done === "true" || t.done === true,
-            }));
-            setTodos(todosData);
-
+            applyRemoteData(data);
           } catch (err) {
             console.error("載入失敗：", err);
-            setLoadMsg("⚠ 連線失敗，請重新整理頁面");
+            setLoadMsg(`⚠ 連線失敗，請重新整理頁面（${err.message || err}）`);
           } finally {
             setLoaded(true);
           }
         })();
-      }, []);
+      }, [applyRemoteData]);
+
+      useEffect(() => {
+        if (role !== "readonly_teacher" || tab !== 0) return;
+        
+        const intervalId = setInterval(async () => {
+          try {
+            const data = await gsLoad();
+            applyRemoteData(data);
+          } catch (e) {
+            console.warn("自動定時拉取最新數據失敗:", e);
+          }
+        }, 30000);
+
+        return () => clearInterval(intervalId);
+      }, [role, tab, applyRemoteData]);
 
       const isFirstRender = useRef(true);
 
       const autoSave = useCallback(async () => {
-        if (!loaded) return;
+        if (!loaded || role === "readonly_teacher") return;
         setSyncStatus("saving");
         try {
           const progressRows = [];
@@ -391,11 +451,13 @@
             todos,
           });
           setSyncStatus("synced");
+          setLastSyncError("");
         } catch (e) {
           console.error("即時同步失敗:", e);
           setSyncStatus("error");
+          setLastSyncError(e.message || String(e));
         }
-      }, [students, groups, assignments, progress, engProgress, categories, todos, loaded]);
+      }, [students, groups, assignments, progress, engProgress, categories, todos, loaded, role]);
 
       useEffect(() => {
         if (isFirstRender.current) {
@@ -403,15 +465,18 @@
           return;
         }
 
+        if (role === "readonly_teacher") return;
+
         setSyncStatus("saving");
         const timer = setTimeout(() => {
           autoSave();
         }, 1500);
 
         return () => clearTimeout(timer);
-      }, [students, groups, assignments, progress, engProgress, categories, todos, autoSave]);
+      }, [students, groups, assignments, progress, engProgress, categories, todos, autoSave, role]);
 
       const handleTeacherLogin = () => setRole("teacher");
+      const handleReadOnlyLogin = () => setRole("readonly_teacher");
       const handleParentLogin = (student) => { setRole("parent"); setCurrentStudent(student); };
       const handleLogout = () => { setRole(null); setCurrentStudent(null); };
       const handlePasswordChange = (studentNumber, newPw) => {
@@ -425,7 +490,7 @@
       );
 
       if (role === null) return (
-        <LoginScreen students={students} onTeacherLogin={handleTeacherLogin} onParentLogin={handleParentLogin} />
+        <LoginScreen students={students} onTeacherLogin={handleTeacherLogin} onReadOnlyLogin={handleReadOnlyLogin} onParentLogin={handleParentLogin} />
       );
 
       if (role === "parent") return (
@@ -438,20 +503,36 @@
           todos={todos}
           onLogout={handleLogout}
           onPasswordChange={handlePasswordChange}
+          syncStatus={syncStatus}
         />
       );
 
+      const isReadOnly = role === "readonly_teacher";
+
       return (
         <div style={{ minHeight: "100vh", background: "#f9f7f4" }}>
-          <header style={{ background: "linear-gradient(135deg,#f97316,#fb923c)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 12px rgba(249,115,22,0.2)" }}>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>📚 班務作業系統</div>
+          <header style={{ background: isReadOnly ? "linear-gradient(135deg,#0284c7,#38bdf8)" : "linear-gradient(135deg,#f97316,#fb923c)", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+            <div style={{ color: "#fff", fontWeight: 800, fontSize: 22, letterSpacing: 1, display: "flex", alignItems: "center", gap: 10 }}>
+              📚 班務作業系統 {isReadOnly && <span style={{ background: "#0369a1", color: "#e0f2fe", fontSize: 12, padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>👀 唯讀觀察模式</span>}
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 13, background: "rgba(255,255,255,0.2)", color: "#fff", padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>
-                {syncStatus === "saving" && "🔄 雲端同步中..."}
-                {syncStatus === "synced" && "☁️ 雲端備份完成"}
-                {syncStatus === "error"  && "⚠️ 同步失敗，重試中"}
-              </div>
-              <button onClick={handleLogout} style={{ background: "#fff", color: "#f97316", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>登出</button>
+              {!isReadOnly && syncStatus === "error" && (
+                <button onClick={autoSave} title={lastSyncError} style={{ fontSize: 13, background: "rgba(255,255,255,0.9)", color: "#dc2626", padding: "4px 12px", borderRadius: 20, fontWeight: 700, border: "none", cursor: "pointer" }}>
+                  ⚠️ 同步失敗，點此重試{lastSyncError ? `（${lastSyncError}）` : ""}
+                </button>
+              )}
+              {!isReadOnly && syncStatus !== "error" && (
+                <div style={{ fontSize: 13, background: "rgba(255,255,255,0.2)", color: "#fff", padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>
+                  {syncStatus === "saving" && "🔄 雲端同步中..."}
+                  {syncStatus === "synced" && "☁️ 雲端備份完成"}
+                </div>
+              )}
+              {isReadOnly && (
+                <div style={{ fontSize: 13, background: "rgba(255,255,255,0.2)", color: "#fff", padding: "4px 12px", borderRadius: 20, fontWeight: 600 }}>
+                  🔒 僅供檢視 (不自動覆蓋)
+                </div>
+              )}
+              <button onClick={handleLogout} style={{ background: "#fff", color: isReadOnly ? "#0284c7" : "#f97316", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>登出</button>
             </div>
           </header>
 
@@ -460,20 +541,323 @@
               <button key={i} onClick={() => setTab(i)} style={{
                 padding: "12px 20px", border: "none", background: "none", cursor: "pointer",
                 fontWeight: tab === i ? 800 : 500, fontSize: 15, whiteSpace: "nowrap",
-                color: tab === i ? "#f97316" : "#6b7280",
-                borderBottom: tab === i ? "3px solid #f97316" : "3px solid transparent",
+                color: tab === i ? (isReadOnly ? "#0284c7" : "#f97316") : "#6b7280",
+                borderBottom: tab === i ? `3px solid ${isReadOnly ? "#0284c7" : "#f97316"}` : "3px solid transparent",
               }}>{t}</button>
             ))}
           </nav>
 
-          <main style={{ padding: "24px", maxWidth: 960, margin: "0 auto" }}>
-            {tab === 0 && <StudentTab students={students} setStudents={setStudents} />}
-            {tab === 1 && <GroupTab students={students} groups={groups} setGroups={setGroups} />}
-            {tab === 2 && <DailyTab students={students} groups={groups} assignments={assignments} setAssignments={setAssignments} progress={progress} setProgress={setProgress} categories={categories} setCategories={setCategories} todos={todos} setTodos={setTodos} />}
-            {tab === 3 && <EnglishTab students={students} engProgress={engProgress} setEngProgress={setEngProgress} />}
-            {tab === 4 && <TodoTab students={students} groups={groups} todos={todos} setTodos={setTodos} />}
-            {tab === 5 && <PrintTab students={students} assignments={assignments} progress={progress} engProgress={engProgress} categories={categories} groups={groups} />}
+          <main style={{ padding: "24px", maxWidth: 1040, margin: "0 auto" }}>
+            {tab === 0 && <RealtimeDashboard students={students} assignments={assignments} progress={progress} setProgress={setProgress} categories={categories} lastFetchTime={lastFetchTime} isReadOnly={isReadOnly} />}
+            {tab === 1 && <StudentTab students={students} setStudents={setStudents} isReadOnly={isReadOnly} />}
+            {tab === 2 && <GroupTab students={students} groups={groups} setGroups={setGroups} isReadOnly={isReadOnly} />}
+            {tab === 3 && <DailyTab students={students} groups={groups} assignments={assignments} setAssignments={setAssignments} progress={progress} setProgress={setProgress} categories={categories} setCategories={setCategories} todos={todos} setTodos={setTodos} isReadOnly={isReadOnly} />}
+            {tab === 4 && <EnglishTab students={students} engProgress={engProgress} setEngProgress={setEngProgress} isReadOnly={isReadOnly} />}
+            {tab === 5 && <TodoTab students={students} groups={groups} todos={todos} setTodos={setTodos} isReadOnly={isReadOnly} />}
+            {tab === 6 && <PrintTab students={students} assignments={assignments} progress={progress} engProgress={engProgress} categories={categories} groups={groups} />}
           </main>
+        </div>
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TAB 0: 即時進度狀態頁面 (可直接點擊修改狀態、科目篩選、排序與列印)
+    // ═══════════════════════════════════════════════════════════════
+    function RealtimeDashboard({ students, assignments, progress, setProgress, categories, lastFetchTime, isReadOnly }) {
+      const [viewMode, setViewMode] = useState("today");
+      const [selectedCategory, setSelectedCategory] = useState("全部");
+      const [sortBy, setSortBy] = useState("date_desc"); // "date_desc" 或 "content"
+
+      const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
+
+      const toggleStatus = (aid, sn) => {
+        if (isReadOnly) return alert("唯讀觀察模式下無法切換狀態");
+        setProgress(prev => {
+          const curStatus = prev[aid]?.[sn] ?? 0;
+          const nextStatus = (curStatus + 1) % 3; // 0 (未繳) -> 1 (訂正/訂) -> 2 (完成/OK) -> 0
+          return {
+            ...prev,
+            [aid]: {
+              ...prev[aid],
+              [sn]: nextStatus
+            }
+          };
+        });
+      };
+
+      const tDate = today();
+
+      // 1. 依 Mode 過濾
+      let filteredAssignments = assignments.filter(a => {
+        if (viewMode === "today") {
+          return a.date === tDate;
+        } else {
+          return students.some(s => {
+            const isAssigned = !a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(s.number);
+            return isAssigned && getStatus(a.id, s.number) < 2;
+          });
+        }
+      });
+
+      // 2. 依科目篩選
+      if (selectedCategory !== "全部") {
+        filteredAssignments = filteredAssignments.filter(a => a.category === selectedCategory);
+      }
+
+      // 3. 排序 (日期由新到舊 或 內容排序)
+      const sortedAssignments = [...filteredAssignments].sort((a, b) => {
+        if (sortBy === "date_desc") {
+          const dateA = a.date || "";
+          const dateB = b.date || "";
+          if (dateB !== dateA) return dateB.localeCompare(dateA);
+          return a.name.localeCompare(b.name, "zh-TW");
+        } else if (sortBy === "content") {
+          return a.name.localeCompare(b.name, "zh-TW");
+        }
+        return 0;
+      });
+
+      // 列印動態看板
+      const printDashboard = () => {
+        const w = window.open("", "print_dashboard", "width=1000,height=750");
+        if (!w) return alert("請允許彈出視窗");
+
+        const tableRowsHtml = sortedAssignments.map(a => `
+          <tr style="text-align: center;">
+            <td style="padding: 6px; border: 1px solid #9ca3af; font-weight: bold;">${a.category}</td>
+            <td style="padding: 6px; border: 1px solid #9ca3af; text-align: left; font-weight: bold;">${a.name} ${a.date ? `<span style="font-size:10px;color:#6b7280;">(${a.date})</span>` : ''}</td>
+            ${students.map(s => {
+              const isAssigned = !a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(s.number);
+              if (!isAssigned) return `<td style="border: 1px solid #9ca3af; background: #f3f4f6; color: #ccc;">-</td>`;
+              const st = getStatus(a.id, s.number);
+              let bg = "#fff";
+              let text = s.number;
+              let color = "#9ca3af";
+              if (st === 1) { bg = "#fb923c"; text = "訂"; color = "#000"; }
+              else if (st === 2) { bg = "#414141"; text = "OK"; color = "#fff"; }
+              return `<td style="border: 1px solid #9ca3af; background: ${bg}; color: ${color}; font-weight: bold; font-size: 11px; padding: 4px 0;">${text}</td>`;
+            }).join("")}
+          </tr>
+        `).join("");
+
+        w.document.write(`
+          <html>
+            <head>
+              <title>即時進度狀態看板列印</title>
+              <style>
+                @page { size: A4 landscape; margin: 8mm; }
+                body { font-family: sans-serif; margin: 0; padding: 12px; }
+                .print-bar { position: fixed; top: 0; left: 0; right: 0; background: #fff; padding: 10px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; display: flex; gap: 12px; align-items: center; }
+                .btn { padding: 6px 16px; background: #f97316; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+                .container { margin-top: 45px; }
+                table { border-collapse: collapse; width: 100%; font-size: 11px; table-layout: fixed; }
+                th { background: #fff7ed; padding: 4px; border: 1px solid #9ca3af; }
+                @media print {
+                  .print-bar { display: none; }
+                  .container { margin-top: 0; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="print-bar">
+                <button class="btn" onclick="window.print()">🖨 開始列印</button>
+                <span style="font-size:12px;color:#6b7280;">提示：建議選擇「橫向 (Landscape)」進行列印</span>
+              </div>
+              <div class="container">
+                <h3 style="margin: 0 0 10px 0; color: #ea580c;">⚡ 即時進度狀態看板 (${today()})</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;">科目</th>
+                      <th style="width: 140px; text-align: left;">進度 / 作業名稱</th>
+                      ${students.map(s => `
+                        <th style="width: 30px;">
+                          <div style="font-size: 10px; color: #ea580c;">${s.number}</div>
+                          <div style="font-size: 11px; writing-mode: vertical-rl; text-orientation: upright; margin: 0 auto; height: 60px;">${s.name}</div>
+                        </th>
+                      `).join("")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRowsHtml}
+                  </tbody>
+                </table>
+              </div>
+            </body>
+          </html>
+        `);
+        w.document.close();
+      };
+
+      return (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ ...h2, marginBottom: 0 }}>⚡ 即時進度狀態看板</h2>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={printDashboard} style={{ ...btnOrange, fontSize: 13, padding: "6px 14px", display: "flex", alignItems: "center", gap: 4 }}>
+                🖨 列印此動態看板
+              </button>
+              <div style={{ fontSize: 13, color: "#6b7280", background: "#fff", padding: "4px 12px", borderRadius: 20, border: "1px solid #fed7aa" }}>
+                ⏱ 每 30 秒自動刷新 ｜ 上次更新：<strong style={{ color: "#ea580c" }}>{lastFetchTime || "剛才"}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div style={card}>
+            {/* 1. 檢視模式切換 & 排序選項 */}
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid #f3f4f6" }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: "#374151" }}>顯示模式：</span>
+              <button
+                onClick={() => setViewMode("today")}
+                style={{
+                  ...chipBtn,
+                  padding: "6px 16px",
+                  fontSize: 13,
+                  background: viewMode === "today" ? "#f97316" : "#f3f4f6",
+                  color: viewMode === "today" ? "#fff" : "#374151",
+                }}
+              >
+                📅 當日作業狀態 ({assignments.filter(a => a.date === tDate).length} 項)
+              </button>
+              <button
+                onClick={() => setViewMode("all_unfinished")}
+                style={{
+                  ...chipBtn,
+                  padding: "6px 16px",
+                  fontSize: 13,
+                  background: viewMode === "all_unfinished" ? "#ef4444" : "#f3f4f6",
+                  color: viewMode === "all_unfinished" ? "#fff" : "#374151",
+                }}
+              >
+                🚨 所有未完成作業 ({assignments.filter(a => students.some(s => (!a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(s.number)) && getStatus(a.id, s.number) < 2)).length} 項)
+              </button>
+
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: "#374151" }}>排序方式：</span>
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value)}
+                  style={{ ...inp, padding: "4px 8px", fontSize: 13 }}
+                >
+                  <option value="date_desc">📅 日期排序 (最新 ➔ 較舊)</option>
+                  <option value="content">📝 作業內容排序 (A ➔ Z)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 2. 科目篩選 */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: "#374151" }}>選擇科目：</span>
+              {["全部", ...categories].map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  style={{
+                    ...chipBtn,
+                    padding: "4px 12px",
+                    fontSize: 12,
+                    background: selectedCategory === cat ? "#ea580c" : "#fff",
+                    color: selectedCategory === cat ? "#fff" : "#374151",
+                    border: selectedCategory === cat ? "none" : "1px solid #fed7aa"
+                  }}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ ...card, overflowX: "auto" }}>
+            {sortedAssignments.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "30px 0", color: "#4ade80", fontWeight: 700, fontSize: 16 }}>
+                🎉 {viewMode === "today" ? "當日無作業或符合條件的作業皆已歸檔！" : "恭喜！目前全班沒有符合條件的未完成作業！"}
+              </div>
+            ) : (
+              <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, tableLayout: "fixed" }}>
+                <thead>
+                  <tr style={{ background: "#fff7ed" }}>
+                    <th style={{ padding: "8px 4px", border: "1px solid #fed7aa", width: 55 }}>科目</th>
+                    <th style={{ padding: "8px 6px", border: "1px solid #fed7aa", textAlign: "left", width: "auto" }}>進度</th>
+                    {students.map(s => (
+                      <th key={s.number} style={{ padding: "6px 1px", border: "1px solid #fed7aa", width: 33, minWidth: 33, verticalAlign: "bottom" }}>
+                        <div style={{ color: "#ea580c", fontWeight: 800, textAlign: "center", marginBottom: 4, fontSize: 11 }}>{s.number}</div>
+                        <div style={{
+                          fontSize: 12,
+                          color: "#374151",
+                          writingMode: "vertical-rl",
+                          textOrientation: "upright",
+                          margin: "0 auto",
+                          letterSpacing: "1px",
+                          fontWeight: 600,
+                          lineHeight: 1.1,
+                          height: "75px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}>
+                          {s.name}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedAssignments.map(a => (
+                    <tr key={a.id} style={{ textAlign: "center" }}>
+                      <td style={{ padding: "6px 2px", border: "1px solid #e5e7eb", fontWeight: 700, color: "#ea580c", background: "#fff", fontSize: 12 }}>
+                        {a.category}
+                      </td>
+                      <td style={{ padding: "6px 8px", border: "1px solid #e5e7eb", textAlign: "left", fontWeight: 700, background: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {a.name} {a.date && <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400 }}>({a.date})</span>}
+                      </td>
+                      {students.map(s => {
+                        const isAssigned = !a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(s.number);
+                        if (!isAssigned) {
+                          return <td key={s.number} style={{ border: "1px solid #e5e7eb", background: "#f3f4f6", color: "#d1d5db" }}>-</td>;
+                        }
+                        const st = getStatus(a.id, s.number);
+                        
+                        // st: 0=未繳(顯示座號), 1=訂正(顯示"訂"), 2=完成(顯示"OK")
+                        let bgColor = "#fff";
+                        let textColor = "#9ca3af";
+                        let displayText = s.number;
+
+                        if (st === 1) {
+                          bgColor = "#fb923c"; // 橘色
+                          textColor = "#000";
+                          displayText = "訂";
+                        } else if (st === 2) {
+                          bgColor = "#414141"; // 深灰/黑色
+                          textColor = "#fff";
+                          displayText = "OK";
+                        }
+
+                        return (
+                          <td
+                            key={s.number}
+                            onClick={() => toggleStatus(a.id, s.number)}
+                            title={`${s.name}: ${st === 0 ? "未繳" : (st === 1 ? "訂正" : "完成")} (點擊切換)`}
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              background: bgColor,
+                              color: textColor,
+                              fontWeight: st === 0 ? 500 : 800,
+                              fontSize: 12,
+                              padding: "6px 0",
+                              cursor: isReadOnly ? "default" : "pointer",
+                              userSelect: "none"
+                            }}
+                          >
+                            {displayText}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       );
     }
@@ -481,13 +865,14 @@
     // ═══════════════════════════════════════════════════════════════
     // TAB 1: 學生名單
     // ═══════════════════════════════════════════════════════════════
-    function StudentTab({ students, setStudents }) {
+    function StudentTab({ students, setStudents, isReadOnly }) {
       const [name, setName] = useState("");
       const [num, setNum] = useState("");
       const [bulk, setBulk] = useState("");
       const [showBulk, setShowBulk] = useState(false);
 
       const addOne = () => {
+        if (isReadOnly) return alert("唯讀模式下無法新增學生");
         if (!name.trim() || !num.trim()) return;
         const n = Number(num);
         if (students.find(s => s.number === n)) return alert("號碼已存在");
@@ -496,6 +881,7 @@
       };
 
       const addBulk = () => {
+        if (isReadOnly) return alert("唯讀模式下無法新增學生");
         const lines = bulk.trim().split("\n").map(l => l.trim()).filter(Boolean);
         const news = [];
         for (const l of lines) {
@@ -509,28 +895,33 @@
         setBulk(""); setShowBulk(false);
       };
 
-      const del = (n) => setStudents(prev => prev.filter(s => s.number !== n));
+      const del = (n) => {
+        if (isReadOnly) return alert("唯讀模式下無法刪除學生");
+        setStudents(prev => prev.filter(s => s.number !== n));
+      };
 
       return (
         <div>
           <h2 style={h2}>👥 學生名單管理</h2>
-          <div style={card}>
-            <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>新增單一學生</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <input value={num} onChange={e => setNum(e.target.value)} placeholder="號碼" style={{ ...inp, width: 80 }} type="number" />
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="姓名" style={{ ...inp, width: 120 }} />
-              <button onClick={addOne} style={btnOrange}>新增</button>
-              <button onClick={() => setShowBulk(!showBulk)} style={btnGray}>批量新增</button>
-            </div>
-            {showBulk && (
-              <div style={{ marginTop: 12 }}>
-                <textarea value={bulk} onChange={e => setBulk(e.target.value)}
-                  placeholder={"每行一位，格式：號碼 姓名\n例：\n1 王小明\n2 李小華"}
-                  style={{ ...inp, width: "100%", height: 120, resize: "vertical" }} />
-                <button onClick={addBulk} style={{ ...btnOrange, marginTop: 8 }}>批量新增</button>
+          {!isReadOnly && (
+            <div style={card}>
+              <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>新增單一學生</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <input value={num} onChange={e => setNum(e.target.value)} placeholder="號碼" style={{ ...inp, width: 80 }} type="number" />
+                <input value={name} onChange={e => setName(e.target.value)} placeholder="姓名" style={{ ...inp, width: 120 }} />
+                <button onClick={addOne} style={btnOrange}>新增</button>
+                <button onClick={() => setShowBulk(!showBulk)} style={btnGray}>批量新增</button>
               </div>
-            )}
-          </div>
+              {showBulk && (
+                <div style={{ marginTop: 12 }}>
+                  <textarea value={bulk} onChange={e => setBulk(e.target.value)}
+                    placeholder={"每行一位，格式：號碼 姓名\n例：\n1 王小明\n2 李小華"}
+                    style={{ ...inp, width: "100%", height: 120, resize: "vertical" }} />
+                  <button onClick={addBulk} style={{ ...btnOrange, marginTop: 8 }}>批量新增</button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={card}>
             <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>全班名單（{students.length} 人）</div>
@@ -540,7 +931,7 @@
                 <div key={s.number} style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "6px 14px", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: "#f97316", fontWeight: 700 }}>{s.number}</span>
                   <span style={{ color: "#374151" }}>{s.name}</span>
-                  <button onClick={() => del(s.number)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16 }}>✕</button>
+                  {!isReadOnly && <button onClick={() => del(s.number)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: 16 }}>✕</button>}
                 </div>
               ))}
             </div>
@@ -552,10 +943,11 @@
     // ═══════════════════════════════════════════════════════════════
     // TAB 2: 學生分組
     // ═══════════════════════════════════════════════════════════════
-    function GroupTab({ students, groups, setGroups }) {
+    function GroupTab({ students, groups, setGroups, isReadOnly }) {
       const [groupName, setGroupName] = useState("");
 
       const addGroup = () => {
+        if (isReadOnly) return alert("唯讀模式下無法建立組別");
         if (!groupName.trim()) return;
         const newGroup = { id: String(Date.now()), name: String(groupName).trim(), student_numbers: [] };
         setGroups(prev => [...prev, newGroup]);
@@ -563,10 +955,12 @@
       };
 
       const delGroup = (id) => {
+        if (isReadOnly) return alert("唯讀模式下無法刪除組別");
         setGroups(prev => prev.filter(g => g.id !== id));
       };
 
       const toggleStudentInGroup = (groupId, studentNumber) => {
+        if (isReadOnly) return alert("唯讀模式下無法修改小組學生");
         setGroups(prev => prev.map(g => {
           if (g.id !== groupId) return g;
           const exists = g.student_numbers.includes(studentNumber);
@@ -581,15 +975,17 @@
         <div>
           <h2 style={h2}>🧩 學生分組管理</h2>
           
-          <div style={card}>
-            <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>➕ 新增小組</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <input value={groupName} onChange={e => setGroupName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addGroup()}
-                placeholder="組別名稱 (如: 第一組、英文加強組)..." style={{ ...inp, flex: 1 }} />
-              <button onClick={addGroup} style={btnOrange}>建立組別</button>
+          {!isReadOnly && (
+            <div style={card}>
+              <div style={{ fontWeight: 700, marginBottom: 12, color: "#374151" }}>➕ 新增小組</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input value={groupName} onChange={e => setGroupName(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addGroup()}
+                  placeholder="組別名稱 (如: 第一組、英文加強組)..." style={{ ...inp, flex: 1 }} />
+                <button onClick={addGroup} style={btnOrange}>建立組別</button>
+              </div>
             </div>
-          </div>
+          )}
 
           {groups.map(g => (
             <div key={g.id} style={card}>
@@ -597,9 +993,9 @@
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#f97316" }}>
                   🏆 {g.name} <span style={{ fontSize: 13, color: "#6b7280" }}>({g.student_numbers.length} 人)</span>
                 </div>
-                <button onClick={() => delGroup(g.id)} style={{ ...btnGray, color: "#ef4444", padding: "4px 10px", fontSize: 12 }}>刪除組別</button>
+                {!isReadOnly && <button onClick={() => delGroup(g.id)} style={{ ...btnGray, color: "#ef4444", padding: "4px 10px", fontSize: 12 }}>刪除組別</button>}
               </div>
-              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>點擊選擇加入或移除學生：</div>
+              <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 8 }}>{isReadOnly ? "組員名單：" : "點擊選擇加入或移除學生："}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {students.map(s => {
                   const inGroup = g.student_numbers.includes(s.number);
@@ -607,9 +1003,10 @@
                     <button key={s.number} onClick={() => toggleStudentInGroup(g.id, s.number)}
                       style={{
                         ...chipBtn,
-                        background: inGroup ? "#f97316" : "#f3f4f6",
+                        background: inGroup ? (isReadOnly ? "#0284c7" : "#f97316") : "#f3f4f6",
                         color: inGroup ? "#fff" : "#374151",
-                        border: inGroup ? "none" : "1px solid #e5e7eb"
+                        border: inGroup ? "none" : "1px solid #e5e7eb",
+                        cursor: isReadOnly ? "default" : "pointer"
                       }}>
                       {s.number} {s.name} {inGroup && "✓"}
                     </button>
@@ -625,7 +1022,7 @@
     // ═══════════════════════════════════════════════════════════════
     // TAB 3: 每日進度
     // ═══════════════════════════════════════════════════════════════
-    function DailyTab({ students, groups, assignments, setAssignments, progress, setProgress, categories, setCategories, todos, setTodos }) {
+    function DailyTab({ students, groups, assignments, setAssignments, progress, setProgress, categories, setCategories, todos, setTodos, isReadOnly }) {
       const [newAssign, setNewAssign] = useState("");
       const [newAssignDate, setNewAssignDate] = useState(today());
       const [newAssignCat, setNewAssignCat] = useState("");
@@ -644,6 +1041,7 @@
       }, [categories]);
 
       const addAssign = () => {
+        if (isReadOnly) return alert("唯讀模式下無法新增作業");
         const taskName = String(newAssign).trim();
         if (!taskName) return;
         
@@ -669,11 +1067,13 @@
       };
 
       const delAssign = (id) => {
+        if (isReadOnly) return alert("唯讀模式下無法刪除作業");
         setAssignments(prev => prev.filter(a => a.id !== id));
         setProgress(prev => { const n = { ...prev }; delete n[id]; return n; });
       };
 
       const saveEdit = (id) => {
+        if (isReadOnly) return alert("唯讀模式下無法編輯作業");
         const updatedName = String(editName).trim();
         if (!updatedName) return alert("任務名稱不可為空");
         setAssignments(prev => prev.map(a => a.id === id ? { ...a, name: updatedName, date: String(editDate) } : a));
@@ -681,6 +1081,7 @@
       };
 
       const cycleStatus = (aid, sn) => {
+        if (isReadOnly) return alert("唯讀帳號無法切換繳交狀態");
         setProgress(prev => {
           const cur = prev[aid]?.[sn] ?? 0;
           return { ...prev, [aid]: { ...prev[aid], [sn]: (cur + 1) % 3 } };
@@ -690,13 +1091,17 @@
       const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
 
       const addCategory = () => {
+        if (isReadOnly) return alert("唯讀模式下無法新增分類");
         const n = String(newCatName).trim();
         if (!n || categories.includes(n)) return;
         setCategories(prev => [...prev, n]);
         setNewCatName("");
       };
 
-      const delCategory = (cat) => setCategories(prev => prev.filter(c => c !== cat));
+      const delCategory = (cat) => {
+        if (isReadOnly) return alert("唯讀模式下無法刪除分類");
+        setCategories(prev => prev.filter(c => c !== cat));
+      };
 
       const visibleAssignments = catFilter === "全部"
         ? assignments
@@ -716,78 +1121,82 @@
         <div>
           <h2 style={h2}>📋 每日進度</h2>
 
-          <div style={card}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCatMgr ? 14 : 0 }}>
-              <div style={{ fontWeight: 700, color: "#374151" }}>🏷 分類管理</div>
-              <button onClick={() => setShowCatMgr(!showCatMgr)} style={{ ...btnGray, padding: "4px 14px", fontSize: 13 }}>
-                {showCatMgr ? "收起 ▲" : "管理分類 ▼"}
-              </button>
-            </div>
-            {showCatMgr && (
-              <>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-                  {categories.map(cat => (
-                    <div key={cat} style={{ display: "flex", alignItems: "center", gap: 6, background: catColor(cat) + "22", border: `1.5px solid ${catColor(cat)}`, borderRadius: 20, padding: "4px 12px" }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: catColor(cat) }}>{cat}</span>
-                      <button onClick={() => delCategory(cat)} style={{ background: "none", border: "none", cursor: "pointer", color: catColor(cat), fontSize: 14 }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && addCategory()}
-                    placeholder="新增分類名稱…" style={{ ...inp, flex: 1 }} />
-                  <button onClick={addCategory} style={btnOrange}>新增分類</button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div style={card}>
-            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 12 }}>➕ 新增作業任務</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-              <select value={newAssignCat} onChange={e => setNewAssignCat(e.target.value)} style={{ ...inp, minWidth: 100, background: "#fff" }}>
-                {categories.map(c => <option key={c}>{c}</option>)}
-              </select>
-              <input value={newAssign} onChange={e => setNewAssign(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addAssign()}
-                placeholder="作業名稱 (如：9/9)..." style={{ ...inp, flex: 1, minWidth: 180 }} />
-              <input type="date" value={newAssignDate} onChange={e => setNewAssignDate(e.target.value)} style={{ ...inp, width: 140 }} />
-              <button onClick={addAssign} style={btnOrange}>新增</button>
-            </div>
-
-            <div style={{ background: "#fff7ed", padding: 12, borderRadius: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#ea580c", marginBottom: 6 }}>🎯 派發對象：</div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <label style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  <input type="radio" name="assignTarget" value="ALL" checked={assignTarget === "ALL"} onChange={() => setAssignTarget("ALL")} /> 全班
-                </label>
-                {groups.map(g => (
-                  <label key={g.id} style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                    <input type="radio" name="assignTarget" value={g.id} checked={assignTarget === g.id} onChange={() => setAssignTarget(g.id)} /> {g.name}
-                  </label>
-                ))}
-                <label style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  <input type="radio" name="assignTarget" value="CUSTOM" checked={assignTarget === "CUSTOM"} onChange={() => setAssignTarget("CUSTOM")} /> 自訂學生
-                </label>
+          {!isReadOnly && (
+            <div style={card}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCatMgr ? 14 : 0 }}>
+                <div style={{ fontWeight: 700, color: "#374151" }}>🏷 分類管理</div>
+                <button onClick={() => setShowCatMgr(!showCatMgr)} style={{ ...btnGray, padding: "4px 14px", fontSize: 13 }}>
+                  {showCatMgr ? "收起 ▲" : "管理分類 ▼"}
+                </button>
               </div>
-
-              {assignTarget === "CUSTOM" && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                  {students.map(s => {
-                    const sel = customStudents.includes(s.number);
-                    return (
-                      <button key={s.number} onClick={() => {
-                        setCustomStudents(prev => sel ? prev.filter(x => x !== s.number) : [...prev, s.number]);
-                      }} style={{ ...chipBtn, padding: "3px 10px", fontSize: 12, background: sel ? "#ea580c" : "#fff", color: sel ? "#fff" : "#374151" }}>
-                        {s.number} {s.name}
-                      </button>
-                    );
-                  })}
-                </div>
+              {showCatMgr && (
+                <>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                    {categories.map(cat => (
+                      <div key={cat} style={{ display: "flex", alignItems: "center", gap: 6, background: catColor(cat) + "22", border: `1.5px solid ${catColor(cat)}`, borderRadius: 20, padding: "4px 12px" }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: catColor(cat) }}>{cat}</span>
+                        <button onClick={() => delCategory(cat)} style={{ background: "none", border: "none", cursor: "pointer", color: catColor(cat), fontSize: 14 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && addCategory()}
+                      placeholder="新增分類名稱…" style={{ ...inp, flex: 1 }} />
+                    <button onClick={addCategory} style={btnOrange}>新增分類</button>
+                  </div>
+                </>
               )}
             </div>
-          </div>
+          )}
+
+          {!isReadOnly && (
+            <div style={card}>
+              <div style={{ fontWeight: 700, color: "#374151", marginBottom: 12 }}>➕ 新增作業任務</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                <select value={newAssignCat} onChange={e => setNewAssignCat(e.target.value)} style={{ ...inp, minWidth: 100, background: "#fff" }}>
+                  {categories.map(c => <option key={c}>{c}</option>)}
+                </select>
+                <input value={newAssign} onChange={e => setNewAssign(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addAssign()}
+                  placeholder="作業名稱 (如：9/9)..." style={{ ...inp, flex: 1, minWidth: 180 }} />
+                <input type="date" value={newAssignDate} onChange={e => setNewAssignDate(e.target.value)} style={{ ...inp, width: 140 }} />
+                <button onClick={addAssign} style={btnOrange}>新增</button>
+              </div>
+
+              <div style={{ background: "#fff7ed", padding: 12, borderRadius: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#ea580c", marginBottom: 6 }}>🎯 派發對象：</div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    <input type="radio" name="assignTarget" value="ALL" checked={assignTarget === "ALL"} onChange={() => setAssignTarget("ALL")} /> 全班
+                  </label>
+                  {groups.map(g => (
+                    <label key={g.id} style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      <input type="radio" name="assignTarget" value={g.id} checked={assignTarget === g.id} onChange={() => setAssignTarget(g.id)} /> {g.name}
+                    </label>
+                  ))}
+                  <label style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    <input type="radio" name="assignTarget" value="CUSTOM" checked={assignTarget === "CUSTOM"} onChange={() => setAssignTarget("CUSTOM")} /> 自訂學生
+                  </label>
+                </div>
+
+                {assignTarget === "CUSTOM" && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                    {students.map(s => {
+                      const sel = customStudents.includes(s.number);
+                      return (
+                        <button key={s.number} onClick={() => {
+                          setCustomStudents(prev => sel ? prev.filter(x => x !== s.number) : [...prev, s.number]);
+                        }} style={{ ...chipBtn, padding: "3px 10px", fontSize: 12, background: sel ? "#ea580c" : "#fff", color: sel ? "#fff" : "#374151" }}>
+                          {s.number} {s.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
             {["全部", ...categories].map(cat => (
@@ -824,12 +1233,13 @@
                       <span style={{ background: catColor(a.category) + "22", color: catColor(a.category), borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>{a.category}</span>
                       <span style={{ flex: 1, fontSize: 15, fontWeight: 600 }}>{a.name}</span>
                       <div style={{ display: "flex", gap: 6 }}>
-                        {STATUS.map((label, i) => (
+                        {["未繳", "訂", "OK"].map((label, i) => (
                           <button key={i} onClick={() => {
+                            if (isReadOnly) return alert("唯讀帳號無法修改狀態");
                             setProgress(prev => ({ ...prev, [a.id]: { ...prev[a.id], [filter]: i } }));
                           }} style={{
-                            borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontWeight: 700, fontSize: 13,
-                            background: st === i ? STATUS_COLOR[i] : "#fff", border: "1px solid #ccc"
+                            borderRadius: 8, padding: "4px 12px", cursor: isReadOnly ? "default" : "pointer", fontWeight: 700, fontSize: 13,
+                            background: st === i ? (i === 1 ? "#fb923c" : (i === 2 ? "#414141" : "#e5e7eb")) : "#fff", color: (st === i && i === 2) ? "#fff" : "#374151", border: "1px solid #ccc"
                           }}>
                             {label}
                           </button>
@@ -865,8 +1275,8 @@
                         {a.assigned_to && a.assigned_to.length > 0 && <span style={{ fontSize: 12, color: "#ea580c", ml: 2, background: "#fff7ed", padding: "2px 6px", borderRadius: 4 }}> (指定 {a.assigned_to.length} 人)</span>}
                       </span>
                       <span style={{ color: "#9ca3af", fontSize: 13 }}>{a.date || "無日期"}</span>
-                      <button onClick={() => { setEditId(a.id); setEditName(a.name); setEditDate(a.date || ""); }} style={btnGray}>✏️</button>
-                      <button onClick={() => delAssign(a.id)} style={{ ...btnGray, color: "#ef4444" }}>🗑</button>
+                      {!isReadOnly && <button onClick={() => { setEditId(a.id); setEditName(a.name); setEditDate(a.date || ""); }} style={btnGray}>✏️</button>}
+                      {!isReadOnly && <button onClick={() => delAssign(a.id)} style={{ ...btnGray, color: "#ef4444" }}>🗑</button>}
                     </>
                   )}
                 </div>
@@ -876,9 +1286,13 @@
                     const st = getStatus(a.id, s.number);
                     return (
                       <button key={s.number} onClick={() => cycleStatus(a.id, s.number)}
-                        style={{ width: 52, padding: "4px 0", border: "none", borderRadius: 8, cursor: "pointer", background: STATUS_COLOR[st], fontWeight: 700, fontSize: 13 }}>
+                        style={{
+                          width: 52, padding: "4px 0", border: "none", borderRadius: 8, cursor: isReadOnly ? "default" : "pointer",
+                          background: st === 1 ? "#fb923c" : (st === 2 ? "#414141" : "#e5e7eb"),
+                          color: st === 2 ? "#fff" : "#374151", fontWeight: 700, fontSize: 13
+                        }}>
                         <div>{s.number}</div>
-                        <div style={{ fontSize: 10 }}>{STATUS[st]}</div>
+                        <div style={{ fontSize: 10 }}>{st === 1 ? "訂" : (st === 2 ? "OK" : "未繳")}</div>
                       </button>
                     );
                   })}
@@ -893,13 +1307,14 @@
     // ═══════════════════════════════════════════════════════════════
     // TAB 4: 英文作業
     // ═══════════════════════════════════════════════════════════════
-    function EnglishTab({ students, engProgress, setEngProgress }) {
+    function EnglishTab({ students, engProgress, setEngProgress, isReadOnly }) {
       const [section, setSection] = useState(0);
       const [datePopup, setDatePopup] = useState({ key: null, value: "" });
       const units = section === 0 ? [1, 2, 3, 4, 5] : [6, 7, 8, 9, 10];
       const parts = [1, 2, 3, 4];
 
       const handleClick = (u, p, sn) => {
+        if (isReadOnly) return alert("唯讀帳號無法修改英文進度");
         const key = `U${u}-P${p}-${sn}`;
         if (engProgress[key]) {
           setEngProgress(prev => { const n = { ...prev }; delete n[key]; return n; });
@@ -910,6 +1325,7 @@
       };
 
       const confirmDate = () => {
+        if (isReadOnly) return alert("唯讀帳號無法修改");
         if (!datePopup.key || !datePopup.value.trim()) return;
         setEngProgress(prev => ({ ...prev, [datePopup.key]: String(datePopup.value).trim() }));
         setDatePopup({ key: null, value: "" });
@@ -919,7 +1335,7 @@
         <div>
           <h2 style={h2}>📖 英文作業</h2>
 
-          {datePopup.key && (
+          {!isReadOnly && datePopup.key && (
             <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 280, textAlign: "center" }}>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#f97316", marginBottom: 6 }}>✏️ 輸入完成日期</div>
@@ -974,7 +1390,7 @@
                       return (
                         <td key={s.number} style={{ padding: 3, borderBottom: pi === 3 ? "2px solid #fed7aa" : "1px solid #f3f4f6", textAlign: "center" }}>
                           <button onClick={() => handleClick(u, p, s.number)}
-                            style={{ width: "100%", padding: "5px 2px", border: "none", borderRadius: 6, cursor: "pointer", background: done ? "#4ade80" : "#f3f4f6", color: done ? "#14532d" : "#d1d5db", fontSize: 11, fontWeight: 700 }}>
+                            style={{ width: "100%", padding: "5px 2px", border: "none", borderRadius: 6, cursor: isReadOnly ? "default" : "pointer", background: done ? "#4ade80" : "#f3f4f6", color: done ? "#14532d" : "#d1d5db", fontSize: 11, fontWeight: 700 }}>
                             {done ? "✓" : "－"}
                           </button>
                         </td>
@@ -992,7 +1408,7 @@
     // ═══════════════════════════════════════════════════════════════
     // TAB 5: 待辦事項
     // ═══════════════════════════════════════════════════════════════
-    function TodoTab({ students, groups, todos, setTodos }) {
+    function TodoTab({ students, groups, todos, setTodos, isReadOnly }) {
       const [selectedStudent, setSelectedStudent] = useState(null);
       const [newTitles, setNewTitles] = useState("");
       const [selectedFor, setSelectedFor] = useState([]);
@@ -1003,6 +1419,7 @@
       };
 
       const addTodo = () => {
+        if (isReadOnly) return alert("唯讀模式下無法新增待辦事項");
         const lines = newTitles.split("\n").map(l => String(l).trim()).filter(Boolean);
         if (lines.length === 0 || selectedFor.length === 0) return;
         const ts = Date.now();
@@ -1017,8 +1434,15 @@
         setSelectedFor([]);
       };
 
-      const toggleDone = (id) => setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
-      const deleteTodo = (id) => setTodos(prev => prev.filter(t => t.id !== id));
+      const toggleDone = (id) => {
+        if (isReadOnly) return alert("唯讀模式下無法變更待辦狀態");
+        setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+      };
+      
+      const deleteTodo = (id) => {
+        if (isReadOnly) return alert("唯讀模式下無法刪除待辦事項");
+        setTodos(prev => prev.filter(t => t.id !== id));
+      };
 
       const studentTodos = selectedStudent !== null ? todos.filter(t => t.student_number === selectedStudent) : [];
 
@@ -1026,37 +1450,39 @@
         <div>
           <h2 style={h2}>📝 待辦事項</h2>
 
-          <div style={card}>
-            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 8 }}>➕ 新增待辦事項</div>
-            <textarea value={newTitles} onChange={e => setNewTitles(e.target.value)}
-              placeholder={"每行一項：\n國語第三課預習\n聯絡簿簽名"}
-              style={{ ...inp, width: "100%", height: 90, resize: "vertical", marginBottom: 12 }} />
+          {!isReadOnly && (
+            <div style={card}>
+              <div style={{ fontWeight: 700, color: "#374151", marginBottom: 8 }}>➕ 新增待辦事項</div>
+              <textarea value={newTitles} onChange={e => setNewTitles(e.target.value)}
+                placeholder={"每行一項：\n國語第三課預習\n聯絡簿簽名"}
+                style={{ ...inp, width: "100%", height: 90, resize: "vertical", marginBottom: 12 }} />
 
-            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 8, fontSize: 13 }}>快速選擇分組：</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-              <button onClick={() => setSelectedFor(students.map(s => s.number))} style={{ ...chipBtn, background: "#f97316", color: "#fff" }}>全班</button>
-              {groups.map(g => (
-                <button key={g.id} onClick={() => selectGroup(g.id)} style={{ ...chipBtn, background: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}>{g.name}</button>
-              ))}
-              <button onClick={() => setSelectedFor([])} style={{ ...chipBtn, background: "#f3f4f6", color: "#374151" }}>清除</button>
+              <div style={{ fontWeight: 700, color: "#374151", marginBottom: 8, fontSize: 13 }}>快速選擇分組：</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <button onClick={() => setSelectedFor(students.map(s => s.number))} style={{ ...chipBtn, background: "#f97316", color: "#fff" }}>全班</button>
+                {groups.map(g => (
+                  <button key={g.id} onClick={() => selectGroup(g.id)} style={{ ...chipBtn, background: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}>{g.name}</button>
+                ))}
+                <button onClick={() => setSelectedFor([])} style={{ ...chipBtn, background: "#f3f4f6", color: "#374151" }}>清除</button>
+              </div>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                {students.map(s => {
+                  const sel = selectedFor.includes(s.number);
+                  return (
+                    <button key={s.number} onClick={() => setSelectedFor(prev => sel ? prev.filter(x=>x!==s.number) : [...prev, s.number])}
+                      style={{ ...chipBtn, background: sel ? "#f97316" : "#f3f4f6", color: sel ? "#fff" : "#374151" }}>
+                      {s.number} {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button onClick={addTodo} disabled={selectedFor.length === 0 || !newTitles.trim()} style={btnOrange}>
+                新增至已選取的 {selectedFor.length} 位學生
+              </button>
             </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-              {students.map(s => {
-                const sel = selectedFor.includes(s.number);
-                return (
-                  <button key={s.number} onClick={() => setSelectedFor(prev => sel ? prev.filter(x=>x!==s.number) : [...prev, s.number])}
-                    style={{ ...chipBtn, background: sel ? "#f97316" : "#f3f4f6", color: sel ? "#fff" : "#374151" }}>
-                    {s.number} {s.name}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button onClick={addTodo} disabled={selectedFor.length === 0 || !newTitles.trim()} style={btnOrange}>
-              新增至已選取的 {selectedFor.length} 位學生
-            </button>
-          </div>
+          )}
 
           <div style={card}>
             <div style={{ fontWeight: 700, color: "#374151", marginBottom: 12 }}>👤 選擇學生查看待辦</div>
@@ -1079,9 +1505,9 @@
                 ? <div style={{ color: "#9ca3af", textAlign: "center" }}>沒有待辦事項 🎉</div>
                 : studentTodos.map(t => (
                   <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
-                    <button onClick={() => toggleDone(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", background: t.done ? "#4ade80" : "#fff", border: "1px solid #ccc", cursor: "pointer" }}>{t.done ? "✓" : ""}</button>
+                    <button onClick={() => toggleDone(t.id)} style={{ width: 24, height: 24, borderRadius: "50%", background: t.done ? "#4ade80" : "#fff", border: "1px solid #ccc", cursor: isReadOnly ? "default" : "pointer" }}>{t.done ? "✓" : ""}</button>
                     <span style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", color: "#374151" }}>{t.title}</span>
-                    <button onClick={() => deleteTodo(t.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#ef4444" }}>🗑</button>
+                    {!isReadOnly && <button onClick={() => deleteTodo(t.id)} style={{ border: "none", background: "none", cursor: "pointer", color: "#ef4444" }}>🗑</button>}
                   </div>
                 ))}
             </div>
@@ -1091,11 +1517,16 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // TAB 6: 表格列印 (修改：設定每頁 12 個項目、超過自動生成第二張)
+    // TAB 6: 表格列印
     // ═══════════════════════════════════════════════════════════════
     function PrintTab({ students, assignments, progress, engProgress, categories, groups }) {
       const [printType, setPrintType] = useState("overview");
       const [selectedStudents, setSelectedStudents] = useState([]);
+      const [selectedCategories, setSelectedCategories] = useState([]);
+
+      useEffect(() => {
+        setSelectedCategories(categories);
+      }, [categories]);
 
       const getStatus = (aid, sn) => progress[aid]?.[sn] ?? 0;
 
@@ -1105,8 +1536,17 @@
         );
       };
 
+      const toggleCategory = (cat) => {
+        setSelectedCategories(prev =>
+          prev.includes(cat) ? prev.filter(x => x !== cat) : [...prev, cat]
+        );
+      };
+
       const selectAll = () => setSelectedStudents(students.map(s => s.number));
       const clearAll = () => setSelectedStudents([]);
+
+      const selectAllCats = () => setSelectedCategories([...categories]);
+      const clearAllCats = () => setSelectedCategories([]);
 
       const openPrintWindow = () => {
         const w = window.open("", "print_preview", "width=900,height=720");
@@ -1123,7 +1563,11 @@
                 const isAssigned = !a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(s.number);
                 if (!isAssigned) return `<td style="background:#f3f4f6;color:#ccc">-</td>`;
                 const st = getStatus(a.id, s.number);
-                return `<td style="background:${STATUS_COLOR[st]}">${STATUS[st]}</td>`;
+                let bg = "#fff";
+                let text = s.number;
+                if (st === 1) { bg = "#fb923c"; text = "訂"; }
+                else if (st === 2) { bg = "#414141"; text = "OK"; }
+                return `<td style="background:${bg}; color:${st===2?'#fff':'#374151'}">${text}</td>`;
               }).join("")}
             </tr>
           `).join("");
@@ -1139,6 +1583,7 @@
           `;
         } else if (printType === "unpaid") {
           if (selectedStudents.length === 0) return alert("請至少選擇一位學生！");
+          if (selectedCategories.length === 0) return alert("請至少選擇一個列印分類！");
 
           const allCardsHtml = [];
 
@@ -1147,12 +1592,18 @@
             .sort((a,b) => a.number - b.number);
 
           sortedSelected.forEach(stObj => {
-            const unpaidList = assignments.filter(a => {
-              const isAssigned = !a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(stObj.number);
-              return isAssigned && getStatus(a.id, stObj.number) < 2;
-            });
+            const unpaidList = assignments
+              .filter(a => {
+                const isCatSelected = selectedCategories.includes(a.category);
+                const isAssigned = !a.assigned_to || a.assigned_to.length === 0 || a.assigned_to.includes(stObj.number);
+                return isCatSelected && isAssigned && getStatus(a.id, stObj.number) < 2;
+              })
+              .sort((a, b) => {
+                const catDiff = (a.category || "").localeCompare(b.category || "", "zh-TW");
+                if (catDiff !== 0) return catDiff;
+                return (a.name || "").localeCompare(b.name || "", "zh-TW");
+              });
 
-            // 設定每個 1/4 A4 卡片最多容納 12 個欠繳項目
             const ITEMS_PER_CARD = 12;
             const totalPages = Math.ceil(unpaidList.length / ITEMS_PER_CARD) || 1;
 
@@ -1162,8 +1613,10 @@
               const rows = pageItems.map(a => `
                 <tr>
                   <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;">${a.category}</td>
-                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;">${a.name}</td>
-                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;font-weight:bold;color:${getStatus(a.id, stObj.number)===1?'#ea580c':'#ef4444'}">${STATUS[getStatus(a.id, stObj.number)]}</td>
+                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;">
+                    ${a.name}${a.date ? ` <span style="color:#9ca3af;font-size:9px;">(${a.date})</span>` : ''}
+                  </td>
+                  <td style="padding:2px 4px;border:1px solid #9ca3af;text-align:center;white-space:nowrap;font-weight:bold;color:${getStatus(a.id, stObj.number)===1?'#ea580c':'#ef4444'}">${getStatus(a.id, stObj.number)===1?'訂':'未繳'}</td>
                 </tr>
               `).join("");
 
@@ -1179,13 +1632,13 @@
                   <table style="width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed;">
                     <thead>
                       <tr style="background:#fff7ed">
-                        <th style="padding:2px;border:1px solid #9ca3af;width:28%;">分類</th>
+                        <th style="padding:2px;border:1px solid #9ca3af;width:25%;">分類</th>
                         <th style="padding:2px;border:1px solid #9ca3af;">作業名稱</th>
-                        <th style="padding:2px;border:1px solid #9ca3af;width:24%;">狀態</th>
+                        <th style="padding:2px;border:1px solid #9ca3af;width:20%;">狀態</th>
                       </tr>
                     </thead>
                     <tbody>
-                      ${rows || '<tr><td colspan="3" style="padding:10px;text-align:center;color:#4ade80;font-size:11px;">✅ 作業皆已完成！</td></tr>'}
+                      ${rows || '<tr><td colspan="3" style="padding:10px;text-align:center;color:#4ade80;font-size:11px;">✅ 此分類下作業皆已完成！</td></tr>'}
                     </tbody>
                   </table>
                   <div style="position:absolute;bottom:4px;right:8px;font-size:8px;color:#9ca3af;">
@@ -1214,78 +1667,19 @@
             <head>
               <title>列印預覽</title>
               <style>
-                @page {
-                  size: A4 portrait;
-                  margin: 0;
-                }
-                body {
-                  font-family: sans-serif;
-                  margin: 0;
-                  padding: 0;
-                  background-color: #f3f4f6;
-                }
-                .no-print-bar {
-                  position: fixed;
-                  top: 0; left: 0; right: 0;
-                  background: #fff;
-                  padding: 12px 20px;
-                  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                  z-index: 1000;
-                  display: flex;
-                  gap: 12px;
-                  align-items: center;
-                }
-                .print-btn {
-                  padding: 8px 20px;
-                  background: #f97316;
-                  color: #fff;
-                  border: none;
-                  border-radius: 6px;
-                  font-weight: bold;
-                  cursor: pointer;
-                  font-size: 14px;
-                }
-                .page-container {
-                  padding-top: 60px;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  gap: 20px;
-                }
-                .a4-page {
-                  width: 210mm;
-                  height: 297mm;
-                  background: #fff;
-                  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-                  display: grid;
-                  grid-template-columns: 105mm 105mm;
-                  grid-template-rows: 148.5mm 148.5mm;
-                  box-sizing: border-box;
-                  page-break-after: always;
-                  break-after: page;
-                }
-                .unpaid-card {
-                  width: 105mm;
-                  height: 148.5mm;
-                  box-sizing: border-box;
-                  padding: 6mm 8mm;
-                  border: 1px dashed #d1d5db;
-                  position: relative;
-                  overflow: hidden;
-                  background: #fff;
-                }
+                @page { size: A4 portrait; margin: 0; }
+                body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; }
+                .no-print-bar { position: fixed; top: 0; left: 0; right: 0; background: #fff; padding: 12px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; display: flex; gap: 12px; align-items: center; }
+                .print-btn { padding: 8px 20px; background: #f97316; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+                .page-container { padding-top: 60px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+                .a4-page { width: 210mm; height: 297mm; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: grid; grid-template-columns: 105mm 105mm; grid-template-rows: 148.5mm 148.5mm; box-sizing: border-box; page-break-after: always; break-after: page; }
+                .unpaid-card { width: 105mm; height: 148.5mm; box-sizing: border-box; padding: 6mm 8mm; border: 1px dashed #d1d5db; position: relative; overflow: hidden; background: #fff; }
                 @media print {
                   body { background: #fff; }
                   .no-print-bar { display: none; }
                   .page-container { padding-top: 0; }
-                  .a4-page {
-                    box-shadow: none;
-                    page-break-after: always;
-                    break-after: page;
-                  }
-                  .unpaid-card {
-                    border: 1px dashed #ccc;
-                  }
+                  .a4-page { box-shadow: none; page-break-after: always; break-after: page; }
+                  .unpaid-card { border: 1px dashed #ccc; }
                 }
               </style>
             </head>
@@ -1317,26 +1711,49 @@
             </div>
 
             {printType === "unpaid" && (
-              <div style={{ background: "#fff7ed", padding: 16, borderRadius: 12, marginBottom: 16, border: "1px solid #fed7aa" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#ea580c" }}>👤 選擇列印學生（已選取 {selectedStudents.length} 位）：</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={selectAll} style={{ ...chipBtn, background: "#f97316", color: "#fff", padding: "4px 12px" }}>全選</button>
-                    <button onClick={clearAll} style={{ ...chipBtn, background: "#f3f4f6", color: "#374151", padding: "4px 12px" }}>清除</button>
+              <>
+                <div style={{ background: "#fff7ed", padding: 16, borderRadius: 12, marginBottom: 12, border: "1px solid #fed7aa" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#ea580c" }}>🏷 選擇列印分類（已選取 {selectedCategories.length} 個）：</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={selectAllCats} style={{ ...chipBtn, background: "#f97316", color: "#fff", padding: "4px 12px" }}>全選</button>
+                      <button onClick={clearAllCats} style={{ ...chipBtn, background: "#f3f4f6", color: "#374151", padding: "4px 12px" }}>清除</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {categories.map(cat => {
+                      const sel = selectedCategories.includes(cat);
+                      return (
+                        <button key={cat} onClick={() => toggleCategory(cat)}
+                          style={{ ...chipBtn, background: sel ? "#ea580c" : "#fff", color: sel ? "#fff" : "#374151", border: sel ? "none" : "1px solid #fed7aa" }}>
+                          {cat} {sel && "✓"}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {students.map(s => {
-                    const sel = selectedStudents.includes(s.number);
-                    return (
-                      <button key={s.number} onClick={() => toggleStudent(s.number)}
-                        style={{ ...chipBtn, background: sel ? "#f97316" : "#fff", color: sel ? "#fff" : "#374151", border: sel ? "none" : "1px solid #fed7aa" }}>
-                        {s.number} {s.name}
-                      </button>
-                    );
-                  })}
+
+                <div style={{ background: "#fff7ed", padding: 16, borderRadius: 12, marginBottom: 16, border: "1px solid #fed7aa" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#ea580c" }}>👤 選擇列印學生（已選取 {selectedStudents.length} 位）：</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={selectAll} style={{ ...chipBtn, background: "#f97316", color: "#fff", padding: "4px 12px" }}>全選</button>
+                      <button onClick={clearAll} style={{ ...chipBtn, background: "#f3f4f6", color: "#374151", padding: "4px 12px" }}>清除</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {students.map(s => {
+                      const sel = selectedStudents.includes(s.number);
+                      return (
+                        <button key={s.number} onClick={() => toggleStudent(s.number)}
+                          style={{ ...chipBtn, background: sel ? "#f97316" : "#fff", color: sel ? "#fff" : "#374151", border: sel ? "none" : "1px solid #fed7aa" }}>
+                          {s.number} {s.name}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             <button onClick={openPrintWindow} style={btnOrange}>🖨 開啟列印頁面</button>
